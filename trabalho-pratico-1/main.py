@@ -9,7 +9,7 @@ import os
 
 
 app = FastAPI()
-XML_FILE = "personagens.csv"
+CSV_FILE = "personagens.csv"
 
 
 # Modelo de dados para o personagem
