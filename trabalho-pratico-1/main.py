@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Dict
 import json
 import pandas as pd
 from http import HTTPStatus
@@ -23,29 +23,75 @@ class Personagem(BaseModel):
     mpMax: int
     status: str
 
-#TODO: Implementar médotos auxiliares para manipulação do CSV
+
+# TODO: Implementar médotos auxiliares para manipulação do CSV
 def lerDadosCSV():
     pass
+
 
 def lerPersonagemCSV(idPersonagem: str):
     pass
 
+
 def inserirPersonagemNoCSV(personagem: Personagem):
     pass
 
-def atualizarPersonagemNoCSV(idPersonagem: str,personagem: Personagem):
+
+def atualizarPersonagemNoCSV(idPersonagem: str, personagem: Personagem):
     pass
+
 
 def deletarPersonagemDoCSV(idPersonagem: str):
     pass
 
-#TODO: Implementar métodos específicos para filtrar os dados de personagens
-#exemplo: def getPersonagensPorClasse(classe: str):
-#exemplo: def getPErsonagemPorParametros(parametros: dict):
 
-@app.get("/", status_code=HTTPStatus.OK)
-async def helloWorld():
-    return {"msg": "Hello World!"}
+# TODO: Implementar métodos específicos para filtrar os dados de personagens
+# exemplo: def getPersonagensPorClasse(classe: str):
+# exemplo: def getPErsonagemPorParametros(parametros: dict):
+
+
+@app.get(
+    "/",
+    responses={
+        201: {
+            "description": "Criado com sucesso",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "quantidade": 0,
+                        "status": "ok",
+                        "mensagem": "",
+                        "erro": {"status": False, "mensagem": ""},
+                    }
+                }
+            },
+        },
+        400: {
+            "description": "Requisição inválida",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "quantidade": 0,
+                        "status": "erro",
+                        "mensagem": "Requisição inválida",
+                        "erro": {"status": True, "mensagem": "Detalhes do erro"},
+                    }
+                }
+            },
+        },
+    },
+    response_model=Dict[str, int | str | Dict[str, bool | str]],
+    status_code=HTTPStatus.CREATED,
+    description="Endpoint de exemplo",
+    summary="Exemplo",
+)
+async def exemplo_endpoint() -> Dict[str, int | str | Dict[str, bool | str]]:
+    return {
+        "quantidade": 0,
+        "status": "ok",
+        "mensagem": "",
+        "erro": {"status": False, "mensagem": ""},
+    }
 
 
 @app.post(
@@ -65,7 +111,7 @@ def criarPersonagem(personagem: Personagem):
     description="Listar todos os personagens do csv",
     summary="Listar personagens",
 )
-def listarPersonagems():
+def listarPersonagems() -> List[Personagem]:
     return lerDadosCSV()
 
 
@@ -76,7 +122,7 @@ def listarPersonagems():
     description="Utilizar o id do personagem para resgatar ele do csv",
     summary="Ler personagem",
 )
-def lerPersonagem(personagem_id: int):
+def lerPersonagem(personagem_id: int) -> Personagem:
     pass
 
 
@@ -87,7 +133,9 @@ def lerPersonagem(personagem_id: int):
     description="Utilizar o id do personagem e um personagem no body para atualizar um personagem do csv",
     summary="Atualizar personagem",
 )
-def atualizarPersonagem(personagem_id: int, personagem_atualizado: Personagem):
+def atualizarPersonagem(
+    personagem_id: int, personagem_atualizado: Personagem
+) -> Personagem:
     pass
 
 
@@ -97,7 +145,7 @@ def atualizarPersonagem(personagem_id: int, personagem_atualizado: Personagem):
     description="Utilizar o id do personagem para remover ele do csv",
     summary="Remover personagem",
 )
-def removerPersonagem(personagem_id: int):
+def removerPersonagem(personagem_id: int) -> Personagem:
     pass
 
 
@@ -107,8 +155,14 @@ def removerPersonagem(personagem_id: int):
     description="Retorna a quantidade de personagens",
     summary="Contar personagens",
 )
-def contarPersonagens():
-    pass
+def contarPersonagens() -> Dict[str, str | int | Dict]:
+    resultado = {
+        "quantidade": 0,
+        "status": "ok",
+        "mensagem": "",
+        "erro": {"status": False, "mensagem": ""},
+    }
+    return resultado
 
 
 @app.get(
@@ -117,7 +171,7 @@ def contarPersonagens():
     description="Faz o download do csv",
     summary="Download CSV",
 )
-def downloadCSV():
+def downloadCSV() -> FileResponse:
     pass
 
 
@@ -127,5 +181,5 @@ def downloadCSV():
     description="Retorna o hash do csv",
     summary="Hash CSV",
 )
-def hashCSV():
+def hashCSV() -> Dict[str, str]:
     pass
