@@ -1,6 +1,7 @@
 from typing import List, Dict
 import json
 import pandas as pd
+import csv
 from http import HTTPStatus
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
@@ -25,29 +26,67 @@ class Personagem(BaseModel):
 
 
 # TODO: Implementar médotos auxiliares para manipulação do CSV
-def lerDadosCSV():
-    pass
-
+def lerPersonagensDoCSV() -> List[Personagem]:
+    personagens = []
+    with open('personagens.csv', mode='r') as file:
+        reader = csv.DictReader(file)
+        for row in reader:
+            personagens.append(Personagem(**row))
+    return personagens
 
 def lerPersonagemCSV(idPersonagem: str):
-    pass
+    with open('personagens.csv', mode='r') as file:
+        reader = csv.DictReader(file)
+        for row in reader:
+            if row['id'] == idPersonagem:
+                return Personagem(**row)
+    return None
 
 
 def inserirPersonagemNoCSV(personagem: Personagem):
-    pass
+    with open('personagens.csv', mode='a', newline='') as file:
+        writer = csv.DictWriter(file, fieldnames=personagem.model_dump().keys())
+        writer.writerow(personagem.model_dump())
 
 
 def atualizarPersonagemNoCSV(idPersonagem: str, personagem: Personagem):
-    pass
+    linhas = []
+    with open('personagens.csv', mode='r') as file:
+        reader = csv.DictReader(file)
+        for row in reader:
+            if row['id'] == idPersonagem:
+                row = personagem.model_dump()
+            linhas.append(row)
+    
+    with open('personagens.csv', mode='w', newline='') as file:
+        writer = csv.DictWriter(file, fieldnames=personagem.model_dump().keys())
+        writer.writeheader()
+        writer.writerows(linhas)
 
 
 def deletarPersonagemDoCSV(idPersonagem: str):
-    pass
+    linhas = []
+    with open('personagens.csv', mode='r') as file:
+        reader = csv.DictReader(file)
+        for row in reader:
+            if row['id'] != idPersonagem:
+                linhas.append(row)
+    
+    with open('personagens.csv', mode='w', newline='') as file:
+        writer = csv.DictWriter(file, fieldnames=linhas[0].keys())
+        writer.writeheader()
+        writer.writerows(linhas)
 
 
 # TODO: Implementar métodos específicos para filtrar os dados de personagens
-# exemplo: def getPersonagensPorClasse(classe: str):
-# exemplo: def getPErsonagemPorParametros(parametros: dict):
+def fazerListagemComFiltrosEOrdenacao(filtros: dict, ordenacao: str, direcao: str):
+    personagens = lerPersonagensDoCSV()
+    
+    for chave, valor in filtros.items():
+        personagens = [personagem for personagem in personagens if getattr(personagem, chave) == valor]
+    
+    personagens.sort(key=lambda personagem: getattr(personagem, ordenacao), reverse=direcao == 'desc')
+    return personagens
 
 
 @app.get(
