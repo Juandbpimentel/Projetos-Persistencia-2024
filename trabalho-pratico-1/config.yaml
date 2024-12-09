@@ -1,0 +1,7 @@
+data:
+  file: personagens.csv
+  proximoId: 20
+logging:
+  file: app.log
+  format: '%(asctime)s - %(levelname)s - %(message)s'
+  level: INFO

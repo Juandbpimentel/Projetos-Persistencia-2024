@@ -1,92 +1,15 @@
-from typing import List, Dict
-import json
-import pandas as pd
-import csv
+from typing import List, Dict, Optional
 from http import HTTPStatus
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
-from pydantic import BaseModel
-import os
+import logging
+import persistUtils
+from persistUtils import Personagem
 
 
 app = FastAPI()
-CSV_FILE = "personagens.csv"
-
-
-# Modelo de dados para o personagem
-class Personagem(BaseModel):
-    id: str
-    nome: str
-    classe: str
-    hp: int
-    hpMax: int
-    mp: int
-    mpMax: int
-    status: str
-
-
-# TODO: Implementar médotos auxiliares para manipulação do CSV
-def lerPersonagensDoCSV() -> List[Personagem]:
-    personagens = []
-    with open('personagens.csv', mode='r') as file:
-        reader = csv.DictReader(file)
-        for row in reader:
-            personagens.append(Personagem(**row))
-    return personagens
-
-def lerPersonagemCSV(idPersonagem: str):
-    with open('personagens.csv', mode='r') as file:
-        reader = csv.DictReader(file)
-        for row in reader:
-            if row['id'] == idPersonagem:
-                return Personagem(**row)
-    return None
-
-
-def inserirPersonagemNoCSV(personagem: Personagem):
-    with open('personagens.csv', mode='a', newline='') as file:
-        writer = csv.DictWriter(file, fieldnames=personagem.model_dump().keys())
-        writer.writerow(personagem.model_dump())
-
-
-def atualizarPersonagemNoCSV(idPersonagem: str, personagem: Personagem):
-    linhas = []
-    with open('personagens.csv', mode='r') as file:
-        reader = csv.DictReader(file)
-        for row in reader:
-            if row['id'] == idPersonagem:
-                row = personagem.model_dump()
-            linhas.append(row)
-    
-    with open('personagens.csv', mode='w', newline='') as file:
-        writer = csv.DictWriter(file, fieldnames=personagem.model_dump().keys())
-        writer.writeheader()
-        writer.writerows(linhas)
-
-
-def deletarPersonagemDoCSV(idPersonagem: str):
-    linhas = []
-    with open('personagens.csv', mode='r') as file:
-        reader = csv.DictReader(file)
-        for row in reader:
-            if row['id'] != idPersonagem:
-                linhas.append(row)
-    
-    with open('personagens.csv', mode='w', newline='') as file:
-        writer = csv.DictWriter(file, fieldnames=linhas[0].keys())
-        writer.writeheader()
-        writer.writerows(linhas)
-
-
-# TODO: Implementar métodos específicos para filtrar os dados de personagens
-def fazerListagemComFiltrosEOrdenacao(filtros: dict, ordenacao: str, direcao: str):
-    personagens = lerPersonagensDoCSV()
-    
-    for chave, valor in filtros.items():
-        personagens = [personagem for personagem in personagens if getattr(personagem, chave) == valor]
-    
-    personagens.sort(key=lambda personagem: getattr(personagem, ordenacao), reverse=direcao == 'desc')
-    return personagens
+CONFIG_FILE = "config.yaml"
+CSV_FILE = persistUtils.configuracaoInicialServidor(CONFIG_FILE)
 
 
 @app.get(
@@ -125,6 +48,7 @@ def fazerListagemComFiltrosEOrdenacao(filtros: dict, ordenacao: str, direcao: st
     summary="Exemplo",
 )
 async def exemplo_endpoint() -> Dict[str, int | str | Dict[str, bool | str]]:
+    logging.info("Endpoint de exemplo chamado")
     return {
         "quantidade": 0,
         "status": "ok",
@@ -134,40 +58,94 @@ async def exemplo_endpoint() -> Dict[str, int | str | Dict[str, bool | str]]:
 
 
 @app.post(
-    "/personagem/",
+    "/personagens",
     response_model=Personagem,
     status_code=HTTPStatus.CREATED,
     description="Recebe um json para inserer um persoangem no csv",
     summary="Criar personagem",
 )
 def criarPersonagem(personagem: Personagem):
-    pass
+    proximoId = persistUtils.obterProximoId(CONFIG_FILE)
+    personagem.id = proximoId
+    persistUtils.inserirPersonagemNoCSV(personagem)
+    persistUtils.incrementarProximoId(CONFIG_FILE)
+    return personagem
 
 
 @app.get(
-    "/personagens/",
+    "/personagens/listar",
     response_model=List[Personagem],
-    description="Listar todos os personagens do csv",
-    summary="Listar personagens",
+    description="Listar todos os personagens do csv utilizando filtros e ordenação",
+    summary="Listar personagens com filtros e odrenação",
 )
-def listarPersonagems() -> List[Personagem]:
-    return lerDadosCSV()
+def listarPersonagensComFiltrosEOrdenacao(
+    id: Optional[int] = None,
+    nome: Optional[str] = None,
+    classe: Optional[str] = None,
+    hp: Optional[int] = None,
+    hpMax: Optional[int] = None,
+    mp: Optional[int] = None,
+    mpMax: Optional[int] = None,
+    status: Optional[str] = None,
+    campoOrdenacao: Optional[str] = None,
+    direcaoOrdenacao: Optional[persistUtils.DirecoesDeOrdenacao] = None,
+) -> List[Personagem]:
+    filtros = {
+        k: v
+        for k, v in locals().items()
+        if k in ["id", "nome", "classe", "hp", "hpMax", "mp", "mpMax", "status"]
+        and v is not None
+    }
+
+    request = {
+        "filtros": filtros or {},
+        "campoOrdenacao": campoOrdenacao or "id",
+        "direcaoOrdenacao": direcaoOrdenacao
+        or persistUtils.DirecoesDeOrdenacao.ASCENDENTE,
+    }
+
+    return persistUtils.listarPersonagensDoCSVComFiltrosEOrdenacao(
+        request["filtros"], request["campoOrdenacao"], request["direcaoOrdenacao"]
+    )
 
 
 @app.get(
-    "/personagens/{personagem_id}",
+    "/personagens/details/{personagem_id}",
     status_code=HTTPStatus.OK,
-    response_model=Personagem,
+    response_model=Personagem | Dict[str, int | str | Dict[str, int | str]],
     description="Utilizar o id do personagem para resgatar ele do csv",
     summary="Ler personagem",
 )
 def lerPersonagem(personagem_id: int) -> Personagem:
-    pass
+    try:
+        personagem = persistUtils.lerPersonagemCSV(personagem_id)
+        if personagem is None:
+            raise HTTPException(
+                status_code=HTTPStatus.NOT_FOUND,
+                detail="Personagem não encontrado",
+            )
+        return personagem
+    except Exception as e:
+        logging.error(f"Erro ao ler personagem de id {personagem_id}: {str(e.detail)}")
+        if isinstance(e, HTTPException):
+            return {
+                "erro": {
+                    "status": e.status_code,
+                    "mensagem": str(e.detail),
+                }
+            }
+        else:
+            return {
+                "erro": {
+                    "status": HTTPStatus.INTERNAL_SERVER_ERROR,
+                    "mensagem": "Erro interno do servidor, tente novamente",
+                }
+            }
 
 
 @app.put(
     "/personagens/{personagem_id}",
-    response_model=Personagem,
+    response_model=Personagem | Dict[str, int | str | Dict[str, int | str]],
     status_code=HTTPStatus.OK,
     description="Utilizar o id do personagem e um personagem no body para atualizar um personagem do csv",
     summary="Atualizar personagem",
@@ -175,17 +153,58 @@ def lerPersonagem(personagem_id: int) -> Personagem:
 def atualizarPersonagem(
     personagem_id: int, personagem_atualizado: Personagem
 ) -> Personagem:
-    pass
+    try:
+        personagem = persistUtils.atualizarPersonagemNoCSV(
+            personagem_id, personagem_atualizado
+        )
+        if personagem is None:
+            raise HTTPException(
+                status_code=HTTPStatus.NOT_FOUND,
+                detail="Personagem não encontrado",
+            )
+        return personagem
+    except Exception as e:
+        logging.error(f"Erro ao atualizar personagem de id {personagem_id}: {str(e)}")
+        if isinstance(e, HTTPException):
+            return {"erro": {"status": e.status_code, "mensagem": str(e.detail)}}
+        else:
+            return {
+                "erro": {
+                    "status": HTTPStatus.INTERNAL_SERVER_ERROR,
+                    "mensagem": "Erro interno do servidor, tente novamente",
+                }
+            }
 
 
 @app.delete(
     "/personagens/{personagem_id}",
     status_code=HTTPStatus.OK,
+    response_model=Personagem | Dict[str, int | str | Dict[str, int | str]],
     description="Utilizar o id do personagem para remover ele do csv",
     summary="Remover personagem",
 )
-def removerPersonagem(personagem_id: int) -> Personagem:
-    pass
+def removerPersonagem(
+    personagem_id: int,
+) -> Personagem:
+    try:
+        personagem = persistUtils.deletarPersonagemDoCSV(personagem_id)
+        if personagem is None:
+            raise HTTPException(
+                status_code=HTTPStatus.NOT_FOUND,
+                detail="Personagem não encontrado",
+            )
+        return personagem
+    except Exception as e:
+        logging.error(f"Erro ao remover personagem de id {personagem_id}: {str(e)}")
+        if isinstance(e, HTTPException):
+            return {"erro": {"status": e.status_code, "mensagem": str(e.detail)}}
+        else:
+            return {
+                "erro": {
+                    "status": HTTPStatus.INTERNAL_SERVER_ERROR,
+                    "mensagem": "Erro interno do servidor, tente novamente",
+                }
+            }
 
 
 @app.get(
@@ -195,12 +214,8 @@ def removerPersonagem(personagem_id: int) -> Personagem:
     summary="Contar personagens",
 )
 def contarPersonagens() -> Dict[str, str | int | Dict]:
-    resultado = {
-        "quantidade": 0,
-        "status": "ok",
-        "mensagem": "",
-        "erro": {"status": False, "mensagem": ""},
-    }
+    resultado = persistUtils.contarPersonagensDoCSV()
+    resultado = {"quantidade": resultado}
     return resultado
 
 
