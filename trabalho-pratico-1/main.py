@@ -230,6 +230,12 @@ def contarPersonagens() -> Dict[str, str | int | Dict]:
 def downloadCSV() -> FileResponse:
     pass
 
+def calcular_hash_sha256(caminho_csv: str) -> str:
+    sha256_hash = hashlib.sha256()
+    with open(caminho_csv, "rb") as f:
+        for byte_block in iter(lambda: f.read(4096), b""):
+            sha256_hash.update(byte_block)
+    return sha256_hash.hexdigest()
 
 @app.get(
     "/personagens/hash",
@@ -238,7 +244,9 @@ def downloadCSV() -> FileResponse:
     summary="Hash CSV",
 )
 def hashCSV() -> Dict[str, str]:
-    pass
+    caminho_csv = CSV_FILE
+    hash_sha256 = calcular_hash_sha256(caminho_csv)
+    return {"hash": hash_sha256}
 
 
 def compactarCSVParaZIP(caminho_csv: str, caminho_zip: str):
