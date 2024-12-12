@@ -5,7 +5,9 @@ from fastapi.responses import FileResponse
 import logging
 import persistUtils
 from persistUtils import Personagem
-
+import zipfile 
+import os
+import hashlib 
 
 app = FastAPI()
 CONFIG_FILE = "config.yaml"
@@ -237,3 +239,35 @@ def downloadCSV() -> FileResponse:
 )
 def hashCSV() -> Dict[str, str]:
     pass
+
+
+def compactarCSVParaZIP(caminho_csv: str, caminho_zip: str):
+    with zipfile.ZipFile(caminho_zip, 'w', zipfile.ZIP_DEFLATED) as zipf:
+        zipf.write(caminho_csv, os.path.basename(caminho_csv))
+
+
+@app.get(
+    "/personagens/download_zip",
+    status_code=HTTPStatus.OK,
+    description="Faz o download do csv compactado em um arquivo ZIP",
+    summary="Download CSV ZIP",
+)
+def downloadCSVZIP() -> FileResponse:
+    caminho_csv = CSV_FILE
+    caminho_zip = "personagens.zip"
+    
+    # Adicionando logs
+    logging.info(f"Compactando o arquivo CSV: {caminho_csv}")
+    
+    compactarCSVParaZIP(caminho_csv, caminho_zip)
+    
+    logging.info(f"Arquivo ZIP criado: {caminho_zip}")
+    
+    if os.path.exists(caminho_zip):
+        logging.info(f"Arquivo ZIP encontrado: {caminho_zip}")
+        return FileResponse(caminho_zip, media_type='application/zip', filename=caminho_zip)
+    else:
+        logging.error(f"Arquivo ZIP não encontrado: {caminho_zip}")
+        raise HTTPException(status_code=404, detail="Arquivo ZIP não encontrado")
+
+
