@@ -38,7 +38,6 @@ class FuncionarioSchema(BaseModel):
     cargo: str
     salario: str
     telefone: str
-
     class Config:
         orm_mode = True
 
@@ -47,6 +46,6 @@ funcionario_routes = SQLAlchemyCRUDRouter(
     schema = FuncionarioSchema,
     db_model=FuncionarioModel,
     db=get_db,
-    prefix='usuario'
+    prefix='funcionarios'
 )
 

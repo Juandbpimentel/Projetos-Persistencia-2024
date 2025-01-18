@@ -8,6 +8,11 @@ from alembic import context
 
 # Importar o modelo FuncionarioModel
 from models.funcionario_model import FuncionarioModel
+from models.cliente_model import ClienteModel
+from models.projeto_model import ProjetoModel
+from models.departamento_model import DepartamentoModel
+from models.contrato_model import ContratoModel
+from models.empresa_model import EmpresaModel
 
 config = context.config
 
