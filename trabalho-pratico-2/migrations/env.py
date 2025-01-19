@@ -7,12 +7,12 @@ from sqlalchemy import pool
 from alembic import context
 
 # Importar o modelo FuncionarioModel
-from models.funcionario_model import FuncionarioModel
-from models.cliente_model import ClienteModel
-from models.projeto_model import ProjetoModel
-from models.departamento_model import DepartamentoModel
-from models.contrato_model import ContratoModel
-from models.empresa_model import EmpresaModel
+from models.models import FuncionarioModel
+from models.models import ClienteModel
+from models.models import ProjetoModel
+from models.models import DepartamentoModel
+from models.models import ContratoModel
+from models.models import EmpresaModel
 
 config = context.config
 
