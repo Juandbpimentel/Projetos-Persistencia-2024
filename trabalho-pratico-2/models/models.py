@@ -9,27 +9,14 @@ from database import Base
 from pydantic import BaseModel, Field
 
 
-
 class ProjetoModel(Base):
     __tablename__ = 'projetos'
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
     nome: Mapped[str] = mapped_column(String)
     descricao: Mapped[str] = mapped_column(String)
-    cliente_id: Mapped[int] = mapped_column(Integer, ForeignKey('clientes.id'))
-    cliente: Mapped["ClienteModel"] = relationship("ClienteModel", back_populates="projetos")
     contrato: Mapped["ContratoModel"] = relationship("ContratoModel", back_populates="projeto", uselist=False)
     funcionarios: Mapped[List["FuncionarioModel"]] = relationship("FuncionarioModel", back_populates="projeto")
-
-class ContratoModel(Base):
-    __tablename__ = 'contratos'
-    id: Mapped[int] = mapped_column(primary_key=True, index=True)
-    email: Mapped[str] = mapped_column(String, unique=True)
-    nome: Mapped[str] = mapped_column(String)
-    condicoes_de_servico: Mapped[str] = mapped_column(String)
-    vigecia: Mapped[String] = mapped_column(String)
-    qtd_max: Mapped[int] = mapped_column(Integer)
-    projeto_id: Mapped[int] = mapped_column(Integer, ForeignKey('projetos.id'))
-    projeto: Mapped["ProjetoModel"] = relationship("ProjetoModel", back_populates="contrato")
+    cliente: Mapped[Optional["ClienteModel"]] = relationship("ClienteModel", back_populates="projeto", uselist=False)
 
 class ClienteModel(Base):
     __tablename__ = 'clientes'
@@ -39,7 +26,20 @@ class ClienteModel(Base):
     razao_social: Mapped[str] = mapped_column(String)
     nome_fantasia: Mapped[str] = mapped_column(String)
     email_de_contato: Mapped[str] = mapped_column(String)
-    projetos: Mapped[List["ProjetoModel"]] = relationship("ProjetoModel", back_populates="cliente")
+    projeto_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey('projetos.id'))
+    projeto: Mapped[Optional["ProjetoModel"]] = relationship("ProjetoModel", back_populates="cliente")
+
+class ContratoModel(Base):
+    __tablename__ = 'contratos'
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    email: Mapped[str] = mapped_column(String, unique=True)
+    nome: Mapped[str] = mapped_column(String)
+    condicoes_de_servico: Mapped[str] = mapped_column(String)
+    vigecia: Mapped[str] = mapped_column(String)
+    qtd_max: Mapped[int] = mapped_column(Integer)
+    projeto_id: Mapped[int] = mapped_column(Integer, ForeignKey('projetos.id'))
+    projeto: Mapped[Optional["ProjetoModel"]] = relationship("ProjetoModel", back_populates="contrato")
+
 
 class FuncionarioModel(Base):
     __tablename__ = 'funcionarios'
@@ -107,7 +107,7 @@ class ProjetoSchema(BaseModel):
     id: int
     nome: str
     descricao: str
-    funcionarios: List[FuncionarioSchema] = Field(default_factory=list)
+    funcionarios: Optional[List[FuncionarioSchema]] = Field(default_factory=list)
     contrato: Optional["ContratoSchema"] = None
     cliente: Optional["ClienteSchema"] = None
 
@@ -134,7 +134,7 @@ class DepartamentoSchema(BaseModel):
     orcamento: int
     status: str
     empresa_id: int
-    funcionarios: List[FuncionarioSchema]
+    funcionarios: Optional[List[FuncionarioSchema]] = Field(default_factory=list)
 
     class Config:
         from_attributes = True
@@ -147,7 +147,7 @@ class EmpresaSchema(BaseModel):
     razao_social: str
     nome_fantasia: str
     email_de_contato: str
-    departamentos: List[DepartamentoSchema] = Field(default_factory=list)
+    departamentos: Optional[List[DepartamentoSchema]] = Field(default_factory=list)
 
     class Config:
         from_attributes = True
