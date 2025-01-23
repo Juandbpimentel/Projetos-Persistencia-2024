@@ -36,7 +36,7 @@ def upgrade() -> None:
     sa.Column('email', sa.String(), nullable=False),
     sa.Column('nome', sa.String(), nullable=False),
     sa.Column('condicoes_de_servico', sa.String(), nullable=False),
-    sa.Column('vigecia', sa.Enum('ATIVO', 'INATIVO', 'SUSPENSO', name='statusenum'), nullable=False),
+    sa.Column('vigecia', sa.String(), nullable=False),
     sa.Column('qtd_max', sa.Integer(), nullable=False),
     sa.PrimaryKeyConstraint('id'),
     sa.UniqueConstraint('email')
@@ -46,7 +46,7 @@ def upgrade() -> None:
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('nome', sa.String(), nullable=False),
     sa.Column('gerente', sa.String(), nullable=False),
-    sa.Column('orcamento', sa.String(), nullable=False),
+    sa.Column('orcamento', sa.Integer(), nullable=False),
     sa.Column('status', sa.Enum('ATIVO', 'INATIVO', 'SUSPENSO', name='statusenum'), nullable=False),
     sa.PrimaryKeyConstraint('id'),
     sa.UniqueConstraint('nome')

@@ -1,28 +1,28 @@
 from typing import List
 from fastapi import Depends, HTTPException, APIRouter
-from sqlmodel import Session, select
+from sqlmodel import Session
 
-from models.models import DepartamentoModel
-from models.crud_router_models import DepartamentoSchema
+from models.models import DepartamentoModel, DepartamentoSchema
 from database import get_db
 
 departamentos_controller_router = APIRouter(
     prefix="/departamentos",
-    tags=["departamentos"],
+    tags=["Departamentos"],
     dependencies=[Depends(get_db)],
     responses={404: {"description": "Not found"}}
 )
 
 @departamentos_controller_router.post("", response_model=DepartamentoSchema)
 def create_departamento(*, session: Session = Depends(get_db), departamento: DepartamentoSchema):
-    session.add(departamento)
+    db_departamento = DepartamentoModel(**departamento.dict())
+    session.add(db_departamento)
     session.commit()
-    session.refresh(departamento)
-    return departamento
+    session.refresh(db_departamento)
+    return db_departamento
 
 @departamentos_controller_router.get("", response_model=List[DepartamentoSchema])
-def read_departamento(*, session: Session = Depends(get_db)):
-    departamentos = session.exec(select(DepartamentoModel)).all()
+def read_departamentos(*, session: Session = Depends(get_db)):
+    departamentos = session.query(DepartamentoModel).all()
     return departamentos
 
 @departamentos_controller_router.get("/{item_id}", response_model=DepartamentoSchema)
