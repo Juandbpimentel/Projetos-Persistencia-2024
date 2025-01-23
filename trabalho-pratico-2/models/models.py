@@ -3,10 +3,16 @@ from typing import Optional, List
 
 from pydantic.types import Decimal
 from enum import Enum as PyEnum
-from sqlalchemy import Column, String, Integer, Enum as SQLAlchemyEnum, ForeignKey
+from sqlalchemy import Column, String, Integer, Enum as SQLAlchemyEnum, ForeignKey, Table
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from database import Base
 from pydantic import BaseModel, Field
+
+projeto_funcionario_association = Table(
+    'projeto_funcionario', Base.metadata,
+    Column('projeto_id', Integer, ForeignKey('projetos.id')),
+    Column('funcionario_id', Integer, ForeignKey('funcionarios.id'))
+)
 
 
 class ProjetoModel(Base):
@@ -15,8 +21,8 @@ class ProjetoModel(Base):
     nome: Mapped[str] = mapped_column(String)
     descricao: Mapped[str] = mapped_column(String)
     contrato: Mapped["ContratoModel"] = relationship("ContratoModel", back_populates="projeto", uselist=False)
-    funcionarios: Mapped[List["FuncionarioModel"]] = relationship("FuncionarioModel", back_populates="projeto")
-    cliente: Mapped[Optional["ClienteModel"]] = relationship("ClienteModel", back_populates="projeto", uselist=False)
+    funcionarios: Mapped[List["FuncionarioModel"]] = relationship("FuncionarioModel", secondary=projeto_funcionario_association, back_populates="projetos")
+    cliente: Mapped["ClienteModel"] = relationship("ClienteModel", back_populates="projeto", uselist=False)
 
 class ClienteModel(Base):
     __tablename__ = 'clientes'
@@ -26,7 +32,7 @@ class ClienteModel(Base):
     razao_social: Mapped[str] = mapped_column(String)
     nome_fantasia: Mapped[str] = mapped_column(String)
     email_de_contato: Mapped[str] = mapped_column(String)
-    projeto_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey('projetos.id'))
+    projeto_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey('projetos.id'), nullable=True)
     projeto: Mapped[Optional["ProjetoModel"]] = relationship("ProjetoModel", back_populates="cliente")
 
 class ContratoModel(Base):
@@ -37,7 +43,7 @@ class ContratoModel(Base):
     condicoes_de_servico: Mapped[str] = mapped_column(String)
     vigecia: Mapped[str] = mapped_column(String)
     qtd_max: Mapped[int] = mapped_column(Integer)
-    projeto_id: Mapped[int] = mapped_column(Integer, ForeignKey('projetos.id'))
+    projeto_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey('projetos.id'), nullable=True)
     projeto: Mapped[Optional["ProjetoModel"]] = relationship("ProjetoModel", back_populates="contrato")
 
 
@@ -50,9 +56,8 @@ class FuncionarioModel(Base):
     salario: Mapped[str] = mapped_column(String)
     telefone: Mapped[str] = mapped_column(String)
     departamento_id: Mapped[int] = mapped_column(Integer, ForeignKey('departamentos.id'))
-    projeto_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey('projetos.id'))
+    projetos: Mapped[List["ProjetoModel"]] = relationship("ProjetoModel", secondary=projeto_funcionario_association, back_populates="funcionarios")
     departamento: Mapped["DepartamentoModel"] = relationship("DepartamentoModel", back_populates="funcionarios")
-    projeto: Mapped[Optional["ProjetoModel"]] = relationship("ProjetoModel", back_populates="funcionarios")
 # https://docs.sqlalchemy.org/en/20/orm/basic_relationships.html
 
 
@@ -122,7 +127,7 @@ class ContratoSchema(BaseModel):
     condicoes_de_servico: str
     vigecia: str
     qtd_max: int
-    projeto_id: int
+    projeto_id: Optional[int] = None
 
     class Config:
         from_attributes = True

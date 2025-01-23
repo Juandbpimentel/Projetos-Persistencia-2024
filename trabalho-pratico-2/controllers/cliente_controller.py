@@ -1,6 +1,7 @@
 from typing import List
-from fastapi import Depends, HTTPException, APIRouter
-from sqlmodel import Session
+from fastapi import Depends, HTTPException, APIRouter, Query
+from sqlmodel import Session, select
+from sqlalchemy import func
 
 from models.models import ClienteModel, ClienteSchema
 from database import get_db
@@ -21,8 +22,9 @@ def create_cliente(*, session: Session = Depends(get_db), cliente: ClienteSchema
     return db_cliente
 
 @clientes_controller_router.get("", response_model=List[ClienteSchema])
-def read_clientes(*, session: Session = Depends(get_db)):
-    clientes = session.query(ClienteModel).all()
+def read_clientes(*, session: Session = Depends(get_db), page: int = Query(1, ge=1), limit: int = Query(10, ge=1)):
+    offset = (page - 1) * limit
+    clientes = session.query(ClienteModel).offset(offset).limit(limit).all()
     return clientes
 
 @clientes_controller_router.get("/{item_id}", response_model=ClienteSchema)
@@ -53,3 +55,8 @@ def delete_cliente(*, session: Session = Depends(get_db), item_id: int):
     session.delete(cliente)
     session.commit()
     return cliente
+
+@clientes_controller_router.get("/auxiliar/count", response_model=int)
+def count_clientes(*, session: Session = Depends(get_db)):
+    count = session.execute(select(func.count(ClienteModel.id))).scalar()
+    return count

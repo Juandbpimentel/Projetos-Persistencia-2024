@@ -1,6 +1,7 @@
 from typing import List
-from fastapi import Depends, HTTPException, APIRouter
-from sqlmodel import Session
+from fastapi import Depends, HTTPException, APIRouter, Query
+from sqlmodel import Session, select
+from sqlalchemy import func
 
 from models.models import ProjetoModel, ProjetoSchema
 from database import get_db
@@ -21,8 +22,9 @@ def create_projeto(*, session: Session = Depends(get_db), projeto: ProjetoSchema
     return db_projeto
 
 @projetos_controller_router.get("", response_model=List[ProjetoSchema])
-def read_projetos(*, session: Session = Depends(get_db)):
-    projetos = session.query(ProjetoModel).all()
+def read_projetos(*, session: Session = Depends(get_db), page: int = Query(1, ge=1), limit: int = Query(10, ge=1)):
+    offset = (page - 1) * limit
+    projetos = session.query(ProjetoModel).offset(offset).limit(limit).all()
     return projetos
 
 @projetos_controller_router.get("/{item_id}", response_model=ProjetoSchema)
@@ -53,3 +55,8 @@ def delete_projeto(*, session: Session = Depends(get_db), item_id: int):
     session.delete(projeto)
     session.commit()
     return projeto
+
+@projetos_controller_router.get("/auxiliar/count", response_model=int)
+def count_projetos(*, session: Session = Depends(get_db)):
+    count = session.execute(select(func.count(ProjetoModel.id))).scalar()
+    return count

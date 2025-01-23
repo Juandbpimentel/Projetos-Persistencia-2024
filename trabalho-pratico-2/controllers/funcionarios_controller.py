@@ -1,6 +1,7 @@
 from typing import List
-from fastapi import Depends, HTTPException, APIRouter
-from sqlmodel import Session
+from fastapi import Depends, HTTPException, APIRouter, Query
+from sqlmodel import Session, select
+from sqlalchemy import func
 
 from models.models import FuncionarioModel, FuncionarioSchema
 from database import get_db
@@ -21,8 +22,9 @@ def create_funcionario(*, session: Session = Depends(get_db), funcionario: Funci
     return db_funcionario
 
 @funcionarios_controller_router.get("", response_model=List[FuncionarioSchema])
-def read_funcionarios(*, session: Session = Depends(get_db)):
-    funcionarios = session.query(FuncionarioModel).all()
+def read_funcionarios(*, session: Session = Depends(get_db), page: int = Query(1, ge=1), limit: int = Query(10, ge=1)):
+    offset = (page - 1) * limit
+    funcionarios = session.query(FuncionarioModel).offset(offset).limit(limit).all()
     return funcionarios
 
 @funcionarios_controller_router.get("/{item_id}", response_model=FuncionarioSchema)
@@ -53,3 +55,8 @@ def delete_funcionario(*, session: Session = Depends(get_db), item_id: int):
     session.delete(funcionario)
     session.commit()
     return funcionario
+
+@funcionarios_controller_router.get("/auxiliar/count", response_model=int)
+def count_funcionarios(*, session: Session = Depends(get_db)):
+    count = session.execute(select(func.count(FuncionarioModel.id))).scalar()
+    return count

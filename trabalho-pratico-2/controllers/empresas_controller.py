@@ -1,6 +1,7 @@
 from typing import List
-from fastapi import Depends, HTTPException, APIRouter
-from sqlmodel import Session
+from fastapi import Depends, HTTPException, APIRouter, Query
+from sqlmodel import Session, select
+from sqlalchemy import func
 
 from models.models import EmpresaModel, EmpresaSchema
 from database import get_db
@@ -21,8 +22,9 @@ def create_empresa(*, session: Session = Depends(get_db), empresa: EmpresaSchema
     return db_empresa
 
 @empresas_controller_router.get("", response_model=List[EmpresaSchema])
-def read_empresas(*, session: Session = Depends(get_db)):
-    empresas = session.query(EmpresaModel).all()
+def read_empresas(*, session: Session = Depends(get_db), page: int = Query(1, ge=1), limit: int = Query(10, ge=1)):
+    offset = (page - 1) * limit
+    empresas = session.query(EmpresaModel).offset(offset).limit(limit).all()
     return empresas
 
 @empresas_controller_router.get("/{item_id}", response_model=EmpresaSchema)
@@ -53,3 +55,8 @@ def delete_empresa(*, session: Session = Depends(get_db), item_id: int):
     session.delete(empresa)
     session.commit()
     return empresa
+
+@empresas_controller_router.get("/auxiliar/count", response_model=int)
+def count_empresas(*, session: Session = Depends(get_db)):
+    count = session.execute(select(func.count(EmpresaModel.id))).scalar()
+    return count

@@ -1,6 +1,7 @@
 from typing import List
-from fastapi import Depends, HTTPException, APIRouter
-from sqlmodel import Session
+from fastapi import Depends, HTTPException, APIRouter, Query
+from sqlmodel import Session, select
+from sqlalchemy import func
 
 from models.models import ContratoModel, ContratoSchema
 from database import get_db
@@ -21,8 +22,9 @@ def create_contrato(*, session: Session = Depends(get_db), contrato: ContratoSch
     return db_contrato
 
 @contratos_controller_router.get("", response_model=List[ContratoSchema])
-def read_contratos(*, session: Session = Depends(get_db)):
-    contratos = session.query(ContratoModel).all()
+def read_contratos(*, session: Session = Depends(get_db), page: int = Query(1, ge=1), limit: int = Query(10, ge=1)):
+    offset = (page - 1) * limit
+    contratos = session.query(ContratoModel).offset(offset).limit(limit).all()
     return contratos
 
 @contratos_controller_router.get("/{item_id}", response_model=ContratoSchema)
@@ -53,3 +55,8 @@ def delete_contrato(*, session: Session = Depends(get_db), item_id: int):
     session.delete(contrato)
     session.commit()
     return contrato
+
+@contratos_controller_router.get("/auxiliar/count", response_model=int)
+def count_contratos(*, session: Session = Depends(get_db)):
+    count = session.execute(select(func.count(ContratoModel.id))).scalar()
+    return count
