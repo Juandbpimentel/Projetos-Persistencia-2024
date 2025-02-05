@@ -1,21 +1,36 @@
 services:
-  mongo-db:
-    image: postgres:16-alpine3.20
-    container_name: postgres-persistencio
-    environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: persistencio
+  mongo:
+    image: mongo:latest
+    container_name: mongodb
     ports:
-      - "5432:5432"
+      - "27017:27017"
     volumes:
-      - ./postgres-data:/var/lib/postgresql_16/data
-    networks:
-      - app-network
+      - ./db/init-mongo.js:/docker-entrypoint-initdb.d/init-mongo.js
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=root
+      - MONGO_INITDB_ROOT_PASSWORD=root
 
-volumes:
-  postgres-data:
+    networks:
+      - mongo-compose-network
+
+  mongo-express:
+    image: mongo-express
+    ports:
+      - 8888:8081
+    environment:
+      ME_CONFIG_MONGODB_SERVER: mongodb
+      ME_CONFIG_MONGODB_AUTH_DATABASE: admin
+      ME_CONFIG_BASICAUTH_USERNAME: admin
+      ME_CONFIG_BASICAUTH_PASSWORD: admin
+      ME_CONFIG_MONGODB_PORT: 27017
+      ME_CONFIG_MONGODB_ENABLE_ADMIN: false
+      ME_CONFIG_MONGODB_ADMINUSERNAME: root
+      ME_CONFIG_MONGODB_ADMINPASSWORD: root
+    links:
+      - mongo
+    networks:
+      - mongo-compose-network
 
 networks:
-  app-network:
+  mongo-compose-network:
     driver: bridge
