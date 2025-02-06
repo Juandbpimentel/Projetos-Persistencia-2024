@@ -10,7 +10,7 @@ Para executar o projeto, siga os passos abaixo:
 - Abra o projeto no PyCharm
 - Instale as dependências do projeto executando o seguinte comando:
 ```shell
-  pip install pymongo motor fastapi uvicorn pydantic python-dotenv
+  pip install pymongo motor "fastapi[standard]" uvicorn pydantic python-dotenv 
 ```
 - Execute o arquivo `main.py` usando o seguinte comando: 
 ```shell
