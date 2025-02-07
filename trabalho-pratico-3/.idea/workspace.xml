@@ -4,22 +4,9 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="ed8d6dc8-eef2-4764-823c-cb7fe0d709af" name="Changes" comment="Alterações para funcionar as coisas do motor">
-      <change afterPath="$PROJECT_DIR$/controllers/clientes_controller.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/controllers/contratos_controller.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/controllers/projetos_controller.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/dataSources/ecf5152d-55ae-41a5-afbf-ecb7e6cbeaed.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/dataSources/ecf5152d-55ae-41a5-afbf-ecb7e6cbeaed.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/trabalho-pratico-3.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/trabalho-pratico-3.iml" afterDir="false" />
+    <list default="true" id="ed8d6dc8-eef2-4764-823c-cb7fe0d709af" name="Changes" comment="Criando Cruds basicos">
+      <change afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/compose.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/compose.yaml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/controllers/cliente_controller.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/controllers/contrato_controller.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/controllers/departamentos_controller.py" beforeDir="false" afterPath="$PROJECT_DIR$/controllers/departamentos_controller.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/controllers/empresas_controller.py" beforeDir="false" afterPath="$PROJECT_DIR$/controllers/empresas_controller.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/controllers/funcionarios_controller.py" beforeDir="false" afterPath="$PROJECT_DIR$/controllers/funcionarios_controller.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/controllers/projeto_controller.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/main.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/models/models.py" beforeDir="false" afterPath="$PROJECT_DIR$/models/models.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -170,7 +157,7 @@
       <workItem from="1738939041997" duration="5410000" />
       <workItem from="1738945783678" duration="159000" />
       <workItem from="1738945956731" duration="217000" />
-      <workItem from="1738946224249" duration="7456000" />
+      <workItem from="1738946224249" duration="7543000" />
     </task>
     <task id="LOCAL-00001" summary="Mandei">
       <option name="closed" value="true" />
@@ -220,7 +207,15 @@
       <option name="project" value="LOCAL" />
       <updated>1738867137689</updated>
     </task>
-    <option name="localTasksCounter" value="7" />
+    <task id="LOCAL-00007" summary="Criando Cruds basicos">
+      <option name="closed" value="true" />
+      <created>1738956103672</created>
+      <option name="number" value="00007" />
+      <option name="presentableId" value="LOCAL-00007" />
+      <option name="project" value="LOCAL" />
+      <updated>1738956103672</updated>
+    </task>
+    <option name="localTasksCounter" value="8" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -243,6 +238,7 @@
     <MESSAGE value="Terminado" />
     <MESSAGE value="Zip com o trab" />
     <MESSAGE value="Alterações para funcionar as coisas do motor" />
-    <option name="LAST_COMMIT_MESSAGE" value="Alterações para funcionar as coisas do motor" />
+    <MESSAGE value="Criando Cruds basicos" />
+    <option name="LAST_COMMIT_MESSAGE" value="Criando Cruds basicos" />
   </component>
 </project>
