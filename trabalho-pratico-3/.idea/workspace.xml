@@ -4,15 +4,20 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="ed8d6dc8-eef2-4764-823c-cb7fe0d709af" name="Changes" comment="Zip com o trab">
-      <change afterPath="$PROJECT_DIR$/controllers/departamentos_controller.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.env" beforeDir="false" afterPath="$PROJECT_DIR$/.env" afterDir="false" />
+    <list default="true" id="ed8d6dc8-eef2-4764-823c-cb7fe0d709af" name="Changes" comment="Alterações para funcionar as coisas do motor">
+      <change afterPath="$PROJECT_DIR$/controllers/clientes_controller.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/controllers/contratos_controller.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/controllers/projetos_controller.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/dataSources/ecf5152d-55ae-41a5-afbf-ecb7e6cbeaed.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/dataSources/ecf5152d-55ae-41a5-afbf-ecb7e6cbeaed.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/trabalho-pratico-3.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/trabalho-pratico-3.iml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/compose.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/compose.yaml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/controllers/departamentos_controllers.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/controllers/cliente_controller.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/controllers/contrato_controller.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/controllers/departamentos_controller.py" beforeDir="false" afterPath="$PROJECT_DIR$/controllers/departamentos_controller.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/controllers/empresas_controller.py" beforeDir="false" afterPath="$PROJECT_DIR$/controllers/empresas_controller.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/db/init-mongo.js" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/controllers/funcionarios_controller.py" beforeDir="false" afterPath="$PROJECT_DIR$/controllers/funcionarios_controller.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/controllers/projeto_controller.py" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/main.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/models/models.py" beforeDir="false" afterPath="$PROJECT_DIR$/models/models.py" afterDir="false" />
     </list>
@@ -42,6 +47,9 @@
   <component name="Git.Settings">
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$/.." />
   </component>
+  <component name="ProblemsViewState">
+    <option name="selectedTabId" value="CurrentFile" />
+  </component>
   <component name="ProjectColorInfo">{
   &quot;customColor&quot;: &quot;&quot;,
   &quot;associatedIndex&quot;: 1
@@ -67,7 +75,7 @@
     &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
     &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
     &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
-    &quot;settings.editor.selected.configurable&quot;: &quot;preferences.pluginManager&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable&quot;,
     &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
   },
   &quot;keyToStringList&quot;: {
@@ -158,7 +166,11 @@
       <workItem from="1738539504845" duration="219000" />
       <workItem from="1738544350090" duration="2686000" />
       <workItem from="1738776518557" duration="8471000" />
-      <workItem from="1738862731577" duration="4233000" />
+      <workItem from="1738862731577" duration="4341000" />
+      <workItem from="1738939041997" duration="5410000" />
+      <workItem from="1738945783678" duration="159000" />
+      <workItem from="1738945956731" duration="217000" />
+      <workItem from="1738946224249" duration="7456000" />
     </task>
     <task id="LOCAL-00001" summary="Mandei">
       <option name="closed" value="true" />
@@ -200,7 +212,15 @@
       <option name="project" value="LOCAL" />
       <updated>1737603623833</updated>
     </task>
-    <option name="localTasksCounter" value="6" />
+    <task id="LOCAL-00006" summary="Alterações para funcionar as coisas do motor">
+      <option name="closed" value="true" />
+      <created>1738867137689</created>
+      <option name="number" value="00006" />
+      <option name="presentableId" value="LOCAL-00006" />
+      <option name="project" value="LOCAL" />
+      <updated>1738867137689</updated>
+    </task>
+    <option name="localTasksCounter" value="7" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -222,6 +242,7 @@
     <MESSAGE value="Mandei final" />
     <MESSAGE value="Terminado" />
     <MESSAGE value="Zip com o trab" />
-    <option name="LAST_COMMIT_MESSAGE" value="Zip com o trab" />
+    <MESSAGE value="Alterações para funcionar as coisas do motor" />
+    <option name="LAST_COMMIT_MESSAGE" value="Alterações para funcionar as coisas do motor" />
   </component>
 </project>

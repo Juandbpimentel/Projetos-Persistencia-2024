@@ -3,60 +3,55 @@ from pydantic import BaseModel, Field
 
 from typing import List, Optional
 
-class ClienteSchema(BaseModel):
+class Cliente(BaseModel):
     id: Optional[str] = Field(None, alias="_id")
     nome_cliente: str
     cnpj_cpf: str
     razao_social: str
     nome_fantasia: str
     email_de_contato: str
-    projeto: Optional[str]
+    projetos: Optional[List[str]] = Field(default_factory=list)
 
-class FuncionarioSchema(BaseModel):
+class Funcionario(BaseModel):
     id: Optional[str] = Field(None, alias="_id")
     email: str
     nome: str
     cargo: str
-    salario: str
+    salario: float
     telefone: str
-    departamento: str
-    projetos: List[str] = Field(default_factory=list)
+    departamento_id: str
+    projetos: Optional[List[str]] = Field(default_factory=list)
 
-class ProjetoSchema(BaseModel):
+class Projeto(BaseModel):
     id: Optional[str] = Field(None, alias="_id")
     nome: str
     descricao: str
-    funcionarios: List[str]= Field(default_factory=list)
-    contrato: Optional[str]
-    cliente: str
+    funcionarios: Optional[List[str]] = Field(default_factory=list)
+    contrato_id: Optional[str]
+    cliente_id: str
 
-class ContratoSchema(BaseModel):
+class Contrato(BaseModel):
     id: Optional[str] = Field(None, alias="_id")
     email: str
     nome: str
     condicoes_de_servico: str
     vigecia: str
+    projeto_id: str
     qtd_max: int
-    projeto: str
 
-class DepartamentoSchema(BaseModel):
+class Departamento(BaseModel):
     id: Optional[str] = Field(None, alias="_id")
     nome: str
-    orcamento: int
+    orcamento: float
     status: str
-    empresa: str
-    funcionarios: List[str] = Field(default_factory=list)
+    empresa_id: str
+    funcionarios: Optional[List[str]] = Field(default_factory=list)
 
-class EmpresaSchema(BaseModel):
+class Empresa(BaseModel):
     id: Optional[str] = Field(None, alias="_id")
     nome_empresa: str
     CNPJ: str
     razao_social: str
     nome_fantasia: str
     email_de_contato: str
-    departamentos: List[str] = Field(default_factory=list)
-
-    class Config:
-        json_encoders = {
-            ObjectId: str
-        }
+    departamentos: Optional[List[str]] = Field(default_factory=list)
