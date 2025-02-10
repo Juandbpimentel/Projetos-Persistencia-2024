@@ -14,7 +14,7 @@ Para executar o projeto, siga os passos abaixo:
 ```
 - Execute o arquivo `main.py` usando o seguinte comando: 
 ```shell
-  python -m fastapi dev main:app --reload --port 8000
+  python -m fastapi dev main.py --reload --port 8000
 ```
 - Acesse o endereço `http://localhost:8000/docs` no seu navegador para acessar a documentação da API
 - Pronto! Agora você pode testar a API
