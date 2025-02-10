@@ -1,13 +1,3 @@
-#TODO: FUNCIONARIO
-#       - TODO: MODELO
-#       - TODO: CONTROLLER
-#       - TODO: CRUD_ROUTER
-#TODO: FUNCIONARIOPROJETO
-#TODO: CLIENTE
-#TODO: DEPARTAMENTO
-#TODO: PROJETO
-#TODO: CLIENTE
-#TODO: CONTRATO
 import controllers.empresas_controller
 from fastapi import FastAPI
 
