@@ -2,7 +2,7 @@ from bson import ObjectId
 from fastapi import APIRouter, HTTPException
 from typing import List
 
-from models import Funcionario
+from models.funcionario_models import Funcionario
 from config import db
 
 db_funcionarios = db.funcionarios

@@ -2,7 +2,7 @@ from bson import ObjectId
 from fastapi import APIRouter, HTTPException
 from typing import List
 
-from models import Projeto
+from models.projeto_models import Projeto
 from config import db
 
 db_projetos = db.projetos

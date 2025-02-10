@@ -2,7 +2,8 @@ from bson import ObjectId
 from fastapi import APIRouter, HTTPException
 from typing import List
 
-from models import Cliente
+from models.cliente_models import Cliente, ClienteDetalhadoDTO
+
 from config import db
 
 db_clientes = db.clientes

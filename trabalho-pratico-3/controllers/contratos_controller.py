@@ -2,7 +2,7 @@ from bson import ObjectId
 from fastapi import APIRouter, HTTPException
 from typing import List
 
-from models import Contrato
+from models.contrato_models import Contrato, ContratoDetalhadoDTO
 from config import db
 
 db_contratos = db.contratos
