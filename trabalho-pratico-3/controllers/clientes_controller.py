@@ -19,128 +19,159 @@ router = APIRouter(
         400: {"description": "Requisição inválida"}},
 )
 
-@router.get("/", response_model=List[Cliente])
-async def get_clientes(skip: int = 0, limit: int = 10) -> List[Cliente]:
-    clientes = await db_clientes.find().skip(skip).limit(limit).to_list(length=limit)
-    for cliente in clientes:
-        cliente["_id"] = str(cliente["_id"])
-        if "projetos" in cliente and isinstance(cliente["projetos"], list):
-            cliente["projetos"] = [str(projeto_id) if isinstance(projeto_id, ObjectId) else projeto_id for projeto_id in cliente["projetos"]]
+async def buscar_cliente_por_id(cliente_id: str) -> ClienteDetalhadoDTO:
+    cliente = await db_clientes.aggregate([
+        {"$match": {"_id": ObjectId(cliente_id)}},
+        {"$lookup": {
+            "from": "projetos",
+            "localField": "projetos_id",
+            "foreignField": "_id",
+            "as": "projetos"
+        }}
+    ]).to_list()
+    if cliente:
+        cliente = cliente[0]
+        converte_ids_para_string(cliente)
+    return cliente
 
+
+async def buscar_clientes_com_page_e_limit(page: int, limit: int) -> List[ClienteDetalhadoDTO]:
+    clientes = await db_clientes.aggregate([
+        {"$lookup": {
+            "from": "projetos",
+            "localField": "projetos_id",
+            "foreignField": "_id",
+            "as": "projetos"
+        }},
+        {"$sort": {"_id": 1}},
+        {"$skip": max(0, page) * limit},
+        {"$limit": limit}
+    ]).to_list()
+    for cliente in clientes:
+        converte_ids_para_string(cliente)
     return clientes
 
-@router.get("/{cliente_id}", response_model=Cliente)
-async def get_cliente(cliente_id: str) -> Cliente:
-    cliente = await db_clientes.find_one({"_id": ObjectId(cliente_id)})
 
+def converte_ids_para_string(cliente):
+    cliente["_id"] = str(cliente["_id"])
+    if cliente["projetos"]:
+        for projeto in cliente["projetos"]:
+            projeto["_id"] = str(projeto["_id"])
+            if projeto["cliente_id"]:
+                projeto["cliente_id"] = str(projeto["cliente_id"])
+            if projeto["funcionarios_id"]:
+                projeto["funcionarios_id"] = [str(funcionario_id) for funcionario_id in projeto["funcionarios_id"]]
+            if projeto["contrato_id"]:
+                projeto["contrato_id"] = str(projeto["contrato_id"])
+
+async def trata_cliente_dict(cliente):
+    cliente = cliente.model_dump(by_alias=True, exclude={"id"})
+    cliente["projetos"] = [
+        ObjectId(projeto_id) for projeto_id in cliente["projetos"]
+        if await db.projetos.find_one({"_id": ObjectId(projeto_id)})
+    ]
+    return cliente
+
+@router.get("/", response_model=List[ClienteDetalhadoDTO])
+async def get_clientes(page: int = 0, limit: int = 10) -> List[ClienteDetalhadoDTO]:
+    return await buscar_clientes_com_page_e_limit(page, limit)
+
+@router.get("/{cliente_id}", response_model=ClienteDetalhadoDTO)
+async def get_cliente(cliente_id: str) -> ClienteDetalhadoDTO:
+    cliente = await buscar_cliente_por_id(cliente_id)
     if not cliente:
         raise HTTPException(status_code=404, detail="Cliente não encontrado")
-
-    cliente["_id"] = str(cliente["_id"])
-    if "projetos" in cliente and isinstance(cliente["projetos"], list):
-        cliente["projetos"] = [str(projeto_id) if isinstance(projeto_id, ObjectId) else projeto_id for projeto_id in cliente["projetos"]]
 
     return cliente
 
 
-@router.post("/", response_model=Cliente)
-async def create_cliente(cliente: Cliente) -> Cliente:
-    cliente_dict = cliente.model_dump(by_alias=True, exclude={"id"})
+@router.post("/", response_model=ClienteDetalhadoDTO)
+async def create_cliente(cliente: Cliente) -> ClienteDetalhadoDTO:
+    cliente_dict = await trata_cliente_dict(cliente)
     novo_cliente = await db_clientes.insert_one(cliente_dict)
-    cliente_criado = await db_clientes.find_one({"_id": novo_cliente.inserted_id})
+    cliente_criado = await buscar_cliente_por_id(str(novo_cliente.inserted_id))
 
     if not cliente_criado:
         raise HTTPException(status_code=400, detail="Erro ao criar cliente")
 
-    projetos = []
+    if cliente_criado["projetos"]:
+        for projeto in cliente_criado["projetos"]:
+            if not projeto:
+                raise HTTPException(status_code=404, detail=f"Projeto {projeto["_id"]} não encontrado")
+            if projeto["cliente_id"] != cliente_criado["_id"]:
+                db.projetos.update_one(
+                    {"_id": ObjectId(projeto["_id"])},
+                    {"$set": {"cliente_id": ObjectId(cliente_criado["_id"])}}
+                )
+                db.clientes.update_one(
+                    {"_id": ObjectId(projeto["cliente_id"])},
+                    {"$pull": {"projetos_id": ObjectId(projeto["_id"])}}
+                )
 
-    for projeto_id in cliente_criado["projetos"]:
-        projeto = await db.projetos.find_one({"_id": ObjectId(projeto_id)})
-        if not projeto:
-            raise HTTPException(status_code=404, detail=f"Projeto {projeto_id} não encontrado")
 
-        projetos.append(projeto)
-
-    for projeto in projetos:
-        if projeto["cliente_id"] != cliente_criado["_id"]:
-            db.projetos.update_one(
-                {"_id": ObjectId(projeto["_id"])},
-                {"$set": {"cliente_id": cliente_criado["_id"]}}
-            )
-            db.clientes.update_one(
-                {"_id": cliente_criado["_id"]},
-                {"$push": {"projetos": str(projeto["_id"])}}
-            )
-            db.clientes.update_one(
-                {"_id": ObjectId(projeto["cliente_id"])},
-                {"$pull": {"projetos": str(projeto["_id"])}}
-            )
-
-    cliente_criado["_id"] = str(cliente_criado["_id"])
+    cliente_criado = await buscar_cliente_por_id(str(novo_cliente.inserted_id))
     return cliente_criado
 
 
-@router.put("/{cliente_id}", response_model=Cliente)
-async def update_cliente(cliente_id: str, cliente: Cliente) -> Cliente:
-    cliente_dict = cliente.model_dump(by_alias=True, exclude={"id"})
-    cliente_antigo = await db_clientes.find_one({"_id": ObjectId(cliente_id)})
+@router.put("/{cliente_id}", response_model=ClienteDetalhadoDTO)
+async def update_cliente(cliente_id: str, cliente: Cliente) -> ClienteDetalhadoDTO:
+    cliente_dict = await trata_cliente_dict(cliente)
+    cliente_antigo = await buscar_cliente_por_id(cliente_id)
 
     if not cliente_antigo:
         raise HTTPException(status_code=404, detail="Cliente não encontrado")
 
-    cliente_atualizado = await db_clientes.find_one_and_update(
-        {"_id": ObjectId(cliente_id)},
-        {"$set": cliente_dict},
-        return_document=True
-    )
+    await db_clientes.update_one({"_id": ObjectId(cliente_id)}, {"$set": cliente_dict})
+    cliente_atualizado = await buscar_cliente_por_id(cliente_id)
 
     if not cliente_atualizado:
         raise HTTPException(status_code=400, detail="Falha ao atualizar cliente")
 
-    if cliente_antigo["projetos"] != cliente_dict["projetos"]:
-        projetos_removidos = list(set(cliente_antigo["projetos"]) - set(cliente_dict["projetos"]))
-        projetos_adicionados = list(set(cliente_dict["projetos"]) - set(cliente_antigo["projetos"]))
-        for projeto_id in projetos_removidos:
+    if cliente_antigo["projetos"] != cliente_atualizado["projetos"]:
+        antigos = {projeto["_id"]: projeto for projeto in cliente_antigo["projetos"]}
+        novos = {projeto["_id"]: projeto for projeto in cliente_atualizado["projetos"]}
+        removidos = [antigos[_id] for _id in set(antigos) - set(novos)]
+        adicionados = [novos[_id] for _id in set(novos) - set(antigos)]
+        for projeto in removidos:
             await db.funcionarios.update_many(
                 {},
-                {"$pull": {"projetos": projeto_id}}
+                {"$pull": {"projetos_id": ObjectId(projeto["_id"])}}
             )
-            await db.contratos.delete_one({"projeto_id": projeto_id})
-            await db.projetos.delete_one({"_id": ObjectId(projeto_id)})
+            await db.contratos.delete_one({"projeto_id":  ObjectId(projeto["_id"])})
+            await db.projetos.delete_one({"_id":  ObjectId(projeto["_id"])})
 
-        for projeto_id in projetos_adicionados:
-            projeto = await db.projetos.find_one({"_id": ObjectId(projeto_id)})
+        for projeto in adicionados:
+            projeto = await db.projetos.find_one({"_id":  ObjectId(projeto["_id"])})
             await db.projetos.update_one(
-                {"_id": ObjectId(projeto_id)},
-                {"$set": {"cliente_id": cliente_atualizado["_id"]}}
-            )
-            await db.clientes.update_one(
-                {"_id": cliente_atualizado["_id"]},
-                {"$push": {"projetos": str(projeto_id)}}
+                {"_id":  ObjectId(projeto["_id"])},
+                {"$set": {"cliente_id": ObjectId(cliente_atualizado["_id"])}}
             )
             await db.clientes.update_one(
                 {"_id": ObjectId(projeto["cliente_id"])},
-                {"$pull": {"projetos": str(projeto_id)}}
+                {"$pull": {"projetos_id":  ObjectId(projeto["_id"])}}
             )
 
-    cliente_atualizado["_id"] = str(cliente_atualizado["_id"])
+    cliente_atualizado = await buscar_cliente_por_id(cliente_id)
     return cliente_atualizado
 
 
-@router.delete("/{cliente_id}", response_model=dict[str, str | Cliente])
-async def delete_cliente(cliente_id: str) -> dict[str, str | Cliente]:
-    cliente_deletado = await db_clientes.find_one_and_delete({"_id": ObjectId(cliente_id)})
+@router.delete("/{cliente_id}", response_model=ClienteDetalhadoDTO)
+async def delete_cliente(cliente_id: str) ->ClienteDetalhadoDTO:
+    cliente = await buscar_cliente_por_id(cliente_id)
 
-    if not cliente_deletado:
+    if not cliente:
         raise HTTPException(status_code=404, detail="Cliente não encontrado")
 
-    for projeto_id in cliente_deletado["projetos"]:
+    cliente_deletado = await db_clientes.delete_one({"_id": ObjectId(cliente_id)})
+    if not cliente_deletado:
+        raise HTTPException(status_code=400, detail="Erro ao deletar cliente")
+
+    for projeto in cliente["projetos"]:
         await db.funcionarios.update_many(
             {},
-            {"$pull": {"projetos": projeto_id}}
+            {"$pull": {"projetos_id":ObjectId(projeto["_id"])}}
         )
-        await db.contratos.delete_one({"projeto_id": projeto_id})
-        await db.projetos.delete_one({"_id": ObjectId(projeto_id)})
+        await db.contratos.delete_one({"projeto_id": ObjectId(projeto["_id"])})
+        await db.projetos.delete_one({"_id": ObjectId(projeto["_id"])})
 
-    cliente_deletado["_id"] = str(cliente_deletado["_id"])
-    return {"message": "Cliente deletado com sucesso!", "cliente": cliente_deletado}
+    return cliente
