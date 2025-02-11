@@ -1,8 +1,7 @@
 from bson import ObjectId
 from fastapi import APIRouter, HTTPException
 from typing import List
-
-from models import Departamento
+from models.departamento_models import Departamento, DepartamentoDetalhadoDTO
 from config import db
 
 db_departamentos = db.departamentos
@@ -18,131 +17,153 @@ router = APIRouter(
         400: {"description": "Requisição inválida"}},
 )
 
-
-@router.get("/", response_model=List[Departamento])
-async def get_departamentos(skip: int = 0, limit: int = 10) -> List[Departamento]:
-    departamentos = await db_departamentos.find().skip(skip).limit(limit).to_list(length=limit)
-    for departamento in departamentos:
-        departamento["_id"] = str(departamento["_id"])
-
-    return departamentos
-
-@router.get("/{departamento_id}", response_model=Departamento)
-async def get_departamento(departamento_id: str) -> Departamento:
-    departamento = await db_departamentos.find_one({"_id": ObjectId(departamento_id)})
-
-    if not departamento:
-        raise HTTPException(status_code=404, detail="Departamento não encontrado")
-
-    departamento["_id"] = str(departamento["_id"])
-    if "funcionarios" in departamento and isinstance(departamento["funcionarios"], list):
-        departamento["funcionarios"] = [
-            str(funcionario_id) if isinstance(funcionario_id, ObjectId) else funcionario_id for funcionario_id in
-            departamento["funcionarios"]]
-
+async def buscar_departamento_por_id(departamento_id: str) -> DepartamentoDetalhadoDTO:
+    departamento = await db_departamentos.aggregate([
+        {"$match": {"_id": ObjectId(departamento_id)}},
+        {"$lookup": {
+            "from": "funcionarios",
+            "localField": "funcionarios_id",
+            "foreignField": "_id",
+            "as": "funcionarios"
+        }},
+        {"$lookup": {
+            "from": "empresas",
+            "localField": "empresa_id",
+            "foreignField": "_id",
+            "as": "empresa"
+        }}
+    ]).to_list()
+    if departamento:
+        departamento = departamento[0]
+        converte_ids_para_string(departamento)
     return departamento
 
+async def buscar_departamentos_com_page_e_limit(page: int, limit: int) -> List[DepartamentoDetalhadoDTO]:
+    departamentos = await db_departamentos.aggregate([
+        {"$lookup": {
+            "from": "funcionarios",
+            "localField": "funcionarios_id",
+            "foreignField": "_id",
+            "as": "funcionarios"
+        }},
+        {"$lookup": {
+            "from": "empresas",
+            "localField": "empresa_id",
+            "foreignField": "_id",
+            "as": "empresa"
+        }},
+        {"$sort": {"_id": 1}},
+        {"$skip": max(0, page) * limit},
+        {"$limit": limit}
+    ]).to_list()
+    for departamento in departamentos:
+        converte_ids_para_string(departamento)
+    return departamentos
 
-@router.post("/", response_model=Departamento, status_code=201)
-async def create_departamento(departamento: Departamento) -> dict[str, str | Departamento]:
+def converte_ids_para_string(departamento: DepartamentoDetalhadoDTO):
+    departamento["_id"] = str(departamento["_id"])
+    if departamento["empresa"]:
+        empresa = departamento["empresa"][0]
+        empresa["_id"] = str(empresa["_id"])
+        empresa["departamentos_id"] = [str(dep_id) for dep_id in empresa["departamentos_id"]]
+        departamento["empresa"] = empresa
+    if departamento["funcionarios"]:
+        for funcionario in departamento["funcionarios"]:
+            funcionario["_id"] = str(funcionario["_id"])
+            funcionario["departamento_id"] = str(funcionario["departamento_id"])
+            funcionario["projetos_id"] = [str(projeto_id) for projeto_id in funcionario["projetos_id"]]
+
+async def trata_departamento_dict(departamento: Departamento):
     departamento_dict = departamento.model_dump(by_alias=True, exclude={"id"})
-    novo_departamento = await db_departamentos.insert_one(departamento_dict)
-    departamento_criado = await db_departamentos.find_one({"_id": novo_departamento.inserted_id})
+    departamento_dict["funcionarios_id"] = [
+        ObjectId(funcionario) for funcionario in departamento_dict["funcionarios_id"]
+        if await db.funcionarios.find_one({"_id": ObjectId(funcionario)})
+    ]
+    empresa = await db.empresas.find_one({"_id": ObjectId(departamento_dict["empresa_id"])})
+    if not empresa:
+        raise HTTPException(status_code=400, detail="Empresa não encontrada")
+    departamento_dict["empresa_id"] = ObjectId(departamento_dict["empresa_id"])
+    return departamento_dict
 
-    if not departamento_criado:
-        raise HTTPException(status_code=400, detail="Erro ao criar departamento")
+@router.get("/", response_model=List[DepartamentoDetalhadoDTO])
+async def get_departamentos(page: int = 0, limit: int = 10) -> List[DepartamentoDetalhadoDTO]:
+    return await buscar_departamentos_com_page_e_limit(page, limit)
 
-
-    await db.empresas.update_one(
-        {"_id": ObjectId(departamento_criado["empresa_id"])},
-        {"$push": {"departamentos": str(departamento_criado["_id"])}}
-    )
-    funcionarios = []
-
-    for funcionario_id in departamento_criado["funcionarios"]:
-        funcionario = await db.funcionarios.find_one({"_id": ObjectId(funcionario_id)})
-        if not funcionario:
-            raise HTTPException(status_code=404, detail=f"Funcionario {funcionario_id} não encontrado")
-        funcionarios.append(funcionario)
-
-    for funcionario in funcionarios:
-        funcionario = await db.funcionarios.find_one({"_id": ObjectId(funcionario["_id"])})
-        if funcionario["departamento_id"] is not None:
-            await db_departamentos.update_one(
-                {"_id": ObjectId(funcionario["departamento_id"])},
-                {"$pull": {"funcionarios": str(funcionario["_id"])}}
-            )
-        await db.funcionarios.update_one(
-            {"_id": ObjectId(funcionario["_id"])},
-            {"$set": {"departamento_id": str(departamento_criado["_id"])}}
-        )
-
-    departamento_criado["_id"] = str(departamento_criado["_id"])
-    return departamento_criado
-
-@router.put("/{departamento_id}", response_model=Departamento)
-async def update_departamento(departamento_id: str, departamento: Departamento) -> Departamento:
-    departamento_dict = departamento.model_dump(by_alias=True, exclude={"id"})
-    departamento_antigo = await db_departamentos.find_one({"_id": ObjectId(departamento_id)})
-
-    departamento_atualizado = await db_departamentos.find_one_and_update(
-        {"_id": ObjectId(departamento_id)},
-        {"$set": departamento_dict},
-        return_document=True
-    )
-
-    if not departamento_atualizado:
-        raise HTTPException(status_code=404, detail="Departamento não encontrado")
-
-    if departamento_antigo["funcionarios"] != departamento_dict["funcionarios"]:
-        funcionarios_removidos = list(set(departamento_antigo["funcionarios"]) - set(departamento_dict["funcionarios"]))
-        funcionarios_adicionados = list(set(departamento_dict["funcionarios"]) - set(departamento_antigo["funcionarios"]))
-
-        for funcionario_id in funcionarios_removidos:
-            await db.funcionarios.delete_one({"_id": ObjectId(funcionario_id)})
-            await db.projetos.update_many(
-                {},
-                {"$pull": {"funcionarios": funcionario_id}}
-            )
-
-        for funcionario_id in funcionarios_adicionados:
-            funcionario = await db.funcionarios.find_one({"_id": ObjectId(funcionario_id)})
-            if not funcionario:
-                raise HTTPException(status_code=404, detail=f"Funcionario {funcionario_id} não encontrado")
-            if funcionario["departamento_id"] is not None:
-                await db_departamentos.update_one(
-                    {"_id": ObjectId(funcionario["departamento_id"])},
-                    {"$pull": {"funcionarios": str(funcionario["_id"])}}
-                )
-            await db.funcionarios.update_one(
-                {"_id": ObjectId(funcionario_id)},
-                {"$set": {"departamento_id": str(departamento_atualizado["_id"])}}
-            )
-
-    departamento_atualizado["_id"] = str(departamento_atualizado["_id"])
-    return departamento_atualizado
-
-@router.delete("/{departamento_id}", response_model=Departamento)
-async def delete_departamento(departamento_id: str) -> Departamento:
-    departamento = await db_departamentos.find_one_and_delete({"_id": ObjectId(departamento_id)})
-
+@router.get("/{departamento_id}", response_model=DepartamentoDetalhadoDTO)
+async def get_departamento(departamento_id: str) -> DepartamentoDetalhadoDTO:
+    if not ObjectId.is_valid(departamento_id):
+        raise HTTPException(status_code=400, detail="ID inválido")
+    departamento = await buscar_departamento_por_id(departamento_id)
     if not departamento:
         raise HTTPException(status_code=404, detail="Departamento não encontrado")
+    return departamento
 
-    funcionarios = departamento["funcionarios"] if "funcionarios" in departamento else []
+@router.post("/", response_model=DepartamentoDetalhadoDTO, status_code=201)
+async def create_departamento(departamento: Departamento) -> DepartamentoDetalhadoDTO:
+    departamento_dict = await trata_departamento_dict(departamento)
+    novo_departamento = await db_departamentos.insert_one(departamento_dict)
+    departamento_criado = await buscar_departamento_por_id(str(novo_departamento.inserted_id))
+    if not departamento_criado:
+        raise HTTPException(status_code=400, detail="Erro ao criar departamento")
+    if departamento_criado["empresa"]:
+        await db.empresas.update_one(
+            {"_id": ObjectId(departamento_criado["empresa_id"])},
+            {"$push": {"departamentos_id": ObjectId(departamento_criado["_id"])}}
+        )
+    if departamento_criado["funcionarios"]:
+        for funcionario in departamento_criado["funcionarios"]:
+            if funcionario["departamento_id"]:
+                await db.departamentos.update_one(
+                    {"_id": ObjectId(funcionario["departamento_id"])},
+                    {"$pull": {"funcionarios_id": ObjectId(funcionario["_id"])}}
+                )
+            await db.funcionarios.update_one(
+                {"_id": ObjectId(funcionario["_id"])},
+                {"$set": {"departamento_id": ObjectId(departamento_criado["_id"])}}
+            )
+    departamento_criado  = await buscar_departamento_por_id(str(novo_departamento.inserted_id))
+    return departamento_criado
 
+@router.put("/{departamento_id}", response_model=DepartamentoDetalhadoDTO)
+async def update_departamento(departamento_id: str, departamento: Departamento) -> DepartamentoDetalhadoDTO:
+    departamento_dict = await trata_departamento_dict(departamento)
+    departamento_antigo = await buscar_departamento_por_id(departamento_id)
+    await db_departamentos.update_one({"_id": ObjectId(departamento_id)}, {"$set": departamento_dict})
+    departamento_atualizado = await buscar_departamento_por_id(departamento_id)
+    if not departamento_atualizado:
+        raise HTTPException(status_code=404, detail="Departamento não encontrado")
+    if departamento_antigo["funcionarios"] != departamento_atualizado["funcionarios"]:
+        antigos = {func["_id"]: func for func in departamento_antigo["funcionarios"]}
+        novos = {func["_id"]: func for func in departamento_atualizado["funcionarios"]}
+        removidos = [antigos[_id] for _id in set(antigos) - set(novos)]
+        adicionados = [novos[_id] for _id in set(novos) - set(antigos)]
+        for funcionario in removidos:
+            await db.funcionarios.delete_one({"_id": ObjectId(funcionario["_id"])})
+            await db.projetos.update_many({}, {"$pull": {"funcionarios_id": ObjectId(funcionario["_id"])}})
+        for funcionario in adicionados:
+            if funcionario["departamento_id"]:
+                await db.departamentos.update_one(
+                    {"_id": ObjectId(funcionario["departamento_id"])},
+                    {"$pull": {"funcionarios_id": ObjectId(funcionario["_id"])}}
+                )
+            await db.funcionarios.update_one(
+                {"_id": ObjectId(funcionario["_id"])},
+                {"$set": {"departamento_id": ObjectId(departamento_atualizado["_id"])}}
+            )
+    departamento_atualizado = await buscar_departamento_por_id(departamento_id)
+    return departamento_atualizado
+
+@router.delete("/{departamento_id}", response_model=DepartamentoDetalhadoDTO)
+async def delete_departamento(departamento_id: str) -> DepartamentoDetalhadoDTO:
+    departamento = await buscar_departamento_por_id(departamento_id)
+    if not departamento:
+        raise HTTPException(status_code=404, detail="Departamento não encontrado")
+    await db_departamentos.delete_one({"_id": ObjectId(departamento_id)})
     await db.empresas.update_one(
         {"_id": ObjectId(departamento["empresa_id"])},
-        {"$pull": {"departamentos": departamento_id}}
+        {"$pull": {"departamentos_id": ObjectId(departamento_id)}}
     )
-
-    await db.funcionarios.delete_many({"departamento_id": departamento_id})
-
-    for funcionario_id in funcionarios:
-        await db.projetos.update_many(
-            {},
-            {"$pull": {"funcionarios": funcionario_id}}
-        )
-
-    departamento["_id"] = str(departamento["_id"])
+    for funcionario in departamento["funcionarios"]:
+        await db.projetos.update_many({}, {"$pull": {"funcionarios_id": ObjectId(funcionario["_id"])}})
+        await db.funcionarios.delete_one({"_id": ObjectId(funcionario["_id"])})
     return departamento

@@ -1,151 +1,131 @@
 from bson import ObjectId
 from fastapi import APIRouter, HTTPException
 from typing import List
-
-from models import Empresa
+from models.empresa_models import EmpresaDetalhadaDTO, Empresa
 from config import db
 
 db_empresas = db.empresas
+router = APIRouter(prefix="/empresas", tags=["empresas"], responses={
+    404: {"description": "Não encontrado"},
+    200: {"description": "Sucesso"},
+    201: {"description": "Criado com sucesso"},
+    500: {"description": "Erro interno"},
+    400: {"description": "Requisição inválida"},
+})
 
-router = APIRouter(
-    prefix="/empresas",
-    tags=["empresas"],
-    responses={
-        404: {"description": "Não encontrado"},
-        200: {"description": "Sucesso"},
-        201: {"description": "Criado com sucesso"},
-        500: {"description": "Erro interno"},
-        400: {"description": "Requisição inválida"}},
-)
-
-@router.get("/", response_model=List[Empresa])
-async def get_empresas(skip: int = 0, limit: int = 10) -> List[Empresa]:
-    empresas = await db_empresas.find().skip(skip).limit(limit).to_list(length=limit)
-    for empresa in empresas:
-        empresa["_id"] = str(empresa["_id"])
-        if "departamentos" in empresa and isinstance(empresa["departamentos"], list):
-            empresa["departamentos"] = [str(departamento_id) if isinstance(departamento_id, ObjectId) else departamento_id for departamento_id in empresa["departamentos"]]
-
-    return empresas
-
-
-@router.get("/{empresa_id}", response_model=Empresa)
-async def get_empresa(empresa_id: str) -> Empresa:
-    empresa = await db_empresas.find_one({"_id": ObjectId(empresa_id)})
-
-    if not empresa:
-        raise HTTPException(status_code=404, detail="Empresa não encontrada")
-
-    empresa["_id"] = str(empresa["_id"])
-    if "departamentos" in empresa and isinstance(empresa["departamentos"], list):
-        empresa["departamentos"] = [str(departamento_id) if isinstance(departamento_id, ObjectId) else departamento_id for departamento_id in empresa["departamentos"]]
-
+async def buscar_empresa_por_id(empresa_id: str) -> EmpresaDetalhadaDTO:
+    empresa = await db_empresas.aggregate([
+        {"$match": {"_id": ObjectId(empresa_id)}},
+        {"$lookup": {
+            "from": "departamentos",
+            "localField": "departamentos_id",
+            "foreignField": "_id",
+            "as": "departamentos"
+        }}
+    ]).to_list()
+    if empresa:
+        empresa = empresa[0]
+        converte_ids_para_string(empresa)
     return empresa
 
+async def buscar_empresas_com_page_e_limit(page: int, limit: int) -> List[EmpresaDetalhadaDTO]:
+    empresas = await db_empresas.aggregate([
+        {"$lookup": {
+            "from": "departamentos",
+            "localField": "departamentos_id",
+            "foreignField": "_id",
+            "as": "departamentos"
+        }},
+        {"$sort": {"_id": 1}},
+        {"$skip": max(0, page) * limit},
+        {"$limit": limit}
+    ]).to_list()
+    for empresa in empresas:
+        converte_ids_para_string(empresa)
+    return empresas
 
-@router.post("/", response_model=Empresa)
-async def create_empresa(empresa: Empresa) -> Empresa:
+def converte_ids_para_string(empresa: EmpresaDetalhadaDTO):
+    empresa["_id"] = str(empresa["_id"])
+    for departamento in empresa["departamentos"]:
+        departamento["_id"] = str(departamento["_id"])
+        departamento["empresa_id"] = str(departamento["empresa_id"])
+        departamento["funcionarios_id"] = [str(funcionario_id) for funcionario_id in departamento["funcionarios_id"]]
+
+async def trata_empresa_dict(empresa: Empresa):
     empresa_dict = empresa.model_dump(by_alias=True, exclude={"id"})
-    nova_empresa = await db_empresas.insert_one(empresa_dict)
-    empresa_criada = await db_empresas.find_one({"_id": nova_empresa.inserted_id})
+    empresa_dict["departamentos_id"] = [
+        ObjectId(departamento["_id"]) for departamento in
+        await db.departamentos.find({"_id": {"$in": [ObjectId(d) for d in empresa_dict["departamentos_id"]]}}).to_list()
+    ]
+    return empresa_dict
 
+@router.get("/", response_model=List[EmpresaDetalhadaDTO])
+async def get_empresas(page: int = 0, limit: int = 10) -> List[EmpresaDetalhadaDTO]:
+    return await buscar_empresas_com_page_e_limit(page, limit)
+
+@router.get("/{empresa_id}", response_model=EmpresaDetalhadaDTO)
+async def get_empresa(empresa_id: str) -> EmpresaDetalhadaDTO:
+    empresa = await buscar_empresa_por_id(empresa_id)
+    if not empresa:
+        raise HTTPException(status_code=404, detail="Empresa não encontrada")
+    return empresa
+
+@router.post("/", response_model=EmpresaDetalhadaDTO)
+async def create_empresa(empresa: Empresa) -> EmpresaDetalhadaDTO:
+    empresa_dict = await trata_empresa_dict(empresa)
+    nova_empresa = await db_empresas.insert_one(empresa_dict)
+    empresa_criada = await buscar_empresa_por_id(str(nova_empresa.inserted_id))
     if not empresa_criada:
         raise HTTPException(status_code=400, detail="Erro ao criar empresa")
-    departamentos = []
-    for departamento_id in empresa_criada["departamentos"]:
-        departamento = await db.departamentos.find_one({"_id": ObjectId(departamento_id)})
-        if not departamento:
-            raise HTTPException(status_code=404, detail=f"Departamento {departamento_id} não encontrado")
-
-        departamentos.append(departamento)
-
-    for departamento in departamentos:
-        if departamento["empresa_id"] is not None:
+    for departamento in empresa_criada["departamentos"]:
+        if departamento["empresa_id"]:
             await db.empresas.update_one(
                 {"_id": ObjectId(departamento["empresa_id"])},
-                {"$pull": {"departamentos": str(departamento["_id"])}}
+                {"$pull": {"departamentos_id": ObjectId(departamento["_id"])}}
             )
-
-            await db.departamentos.update_one(
-                {"_id": ObjectId(departamento["_id"])},
-                {"$set": {"empresa_id": str(empresa_criada["_id"])}}
-            )
-
-    empresa_criada["_id"] = str(empresa_criada["_id"])
+        await db.departamentos.update_one({"_id": ObjectId(departamento["_id"])}, {"$set": {"empresa_id": ObjectId(empresa_criada["_id"])}})
+        empresa_criada = await buscar_empresa_por_id(str(nova_empresa.inserted_id))
     return empresa_criada
 
-
-@router.put("/{empresa_id}", response_model=Empresa)
-async def update_empresa(empresa_id: str, empresa: Empresa) -> Empresa:
-    empresa_dict = empresa.model_dump(by_alias=True, exclude={"id"})
-    empresa_antiga = await db_empresas.find_one({"_id": ObjectId(empresa_id)})
-
-    empresa_atualizada = await db_empresas.find_one_and_update(
-        {"_id": ObjectId(empresa_id)},
-        {"$set": empresa_dict},
-        return_document=True
-    )
-
+@router.put("/{empresa_id}", response_model=EmpresaDetalhadaDTO)
+async def update_empresa(empresa_id: str, empresa: Empresa) -> EmpresaDetalhadaDTO:
+    empresa_dict = await trata_empresa_dict(empresa)
+    empresa_antiga = await buscar_empresa_por_id(empresa_id)
+    if not empresa_antiga:
+        raise HTTPException(status_code=404, detail="Empresa não encontrada")
+    await db_empresas.update_one({"_id": ObjectId(empresa_id)}, {"$set": empresa_dict})
+    empresa_atualizada = await buscar_empresa_por_id(empresa_id)
     if not empresa_atualizada:
         raise HTTPException(status_code=404, detail="Empresa não encontrada")
-
-    if empresa_antiga["departamentos"] != empresa_dict["departamentos"]:
-        departamentos_removidos = list(set(empresa_antiga["departamentos"]) - set(empresa_dict["departamentos"]))
-        departamentos_adicionados = list(set(empresa_dict["departamentos"]) - set(empresa_antiga["departamentos"]))
-
-        for departamento_id in departamentos_removidos:
-            await db.departamentos.delete_one({"_id": ObjectId(departamento_id)})
-
-            funcionarios = await db.funcionarios.find({"departamento_id": departamento_id}).to_list()
-            for funcionario in funcionarios:
-                await db.projetos.update_many(
-                    {},
-                    {"$pull": {"funcionarios": str(funcionario["_id"])}}
-                )
-                await db.funcionarios.delete_one({"_id": ObjectId(funcionario["_id"])})
-        for departamento_id in departamentos_adicionados:
-            departamento = await db.departamentos.find_one({"_id": ObjectId(departamento_id)})
-            if not departamento:
-                raise HTTPException(status_code=404, detail=f"Departamento {departamento_id} não encontrado")
-
-            if departamento["empresa_id"] is not None:
+    if empresa_antiga["departamentos"] != empresa_atualizada["departamentos"]:
+        antigos = {dep["_id"]: dep for dep in empresa_antiga["departamentos"]}
+        novos = {dep["_id"]: dep for dep in empresa_atualizada["departamentos"]}
+        removidos = [antigos[_id] for _id in set(antigos) - set(novos)]
+        adicionados = [novos[_id] for _id in set(novos) - set(antigos)]
+        for departamento in removidos:
+            await db.departamentos.delete_one({"_id": ObjectId(departamento["_id"])})
+            for funcionario_id in departamento["funcionarios_id"]:
+                await db.projetos.update_many({}, {"$pull": {"funcionarios_id": ObjectId(funcionario_id)}})
+                await db.funcionarios.delete_one({"_id": ObjectId(funcionario_id)})
+        for departamento in adicionados:
+            if departamento["empresa_id"]:
                 await db.empresas.update_one(
                     {"_id": ObjectId(departamento["empresa_id"])},
-                    {"$pull": {"departamentos": str(departamento["_id"])}}
+                    {"$pull": {"departamentos_id": ObjectId(departamento["_id"])}}
                 )
-
-            await db.departamentos.update_one(
-                {"_id": ObjectId(departamento["_id"])},
-                {"$set": {"empresa_id": str(empresa_atualizada["_id"])}}
-            )
-    empresa_atualizada["_id"] = str(empresa_atualizada["_id"])
+            await db.departamentos.update_one({"_id": ObjectId(departamento["_id"])}, {"$set": {"empresa_id": ObjectId(empresa_id)}})
+    empresa_atualizada = await buscar_empresa_por_id(empresa_id)
     return empresa_atualizada
 
-
-@router.delete("/{empresa_id}", response_model=Empresa)
-async def delete_empresa(empresa_id: str) -> Empresa:
-    empresa_deletada = await db_empresas.find_one_and_delete({"_id": ObjectId(empresa_id)})
-
-    if not empresa_deletada:
+@router.delete("/{empresa_id}", response_model=EmpresaDetalhadaDTO)
+async def delete_empresa(empresa_id: str) -> EmpresaDetalhadaDTO:
+    empresa = await buscar_empresa_por_id(empresa_id)
+    if not empresa:
         raise HTTPException(status_code=404, detail="Empresa não encontrada")
-
-    departamentos = empresa_deletada["departamentos"]
-
-    funcionarios = []
-    for departamento_id in departamentos:
-        funcionarios.extend(
-            await db.funcionarios.find(
-                {"departamento_id": departamento_id}
-            ).to_list()
-        )
-        db.departamentos.delete_one({"_id": ObjectId(departamento_id)})
-
-    for funcionario in funcionarios:
-        await db.projetos.update_many(
-            {},
-            {"$pull": {"funcionarios": str(funcionario["_id"])}}
-        )
-        await db.funcionarios.delete_one({"_id": ObjectId(funcionario["_id"])})
-
-    empresa_deletada["_id"] = str(empresa_deletada["_id"])
-    return empresa_deletada
+    await db_empresas.delete_one({"_id": ObjectId(empresa_id)})
+    for departamento in empresa["departamentos"]:
+        await db.departamentos.delete_one({"_id": ObjectId(departamento["_id"])})
+        for funcionario_id in departamento["funcionarios_id"]:
+            await db.projetos.update_many({}, {"$pull": {"funcionarios_id": ObjectId(funcionario_id)}})
+            await db.funcionarios.delete_one({"_id": ObjectId(funcionario_id)})
+    return empresa
