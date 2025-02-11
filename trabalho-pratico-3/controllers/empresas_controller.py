@@ -2,7 +2,7 @@ from bson import ObjectId
 from fastapi import APIRouter, HTTPException
 from typing import List
 
-from models.empresa_model import EmpresaDetalhadaDTO, Empresa
+from models.empresa_models import EmpresaDetalhadaDTO, Empresa
 from config import db
 
 db_empresas = db.empresas
@@ -29,9 +29,9 @@ async def get_empresas(page: int = 0, limit: int = 10) -> List[EmpresaDetalhadaD
             if departamento["empresa_id"] is not None:
                 departamento["empresa_id"] = str(departamento["empresa_id"])
 
-            if departamento["funcionarios"] is not None:
-                for i, funcionario_id in enumerate(departamento["funcionarios"]):
-                    departamento["funcionarios"][i] = str(funcionario_id)
+            if departamento["funcionarios_id"] is not None:
+                for i, funcionario_id in enumerate(departamento["funcionarios_id"]):
+                    departamento["funcionarios_id"][i] = str(funcionario_id)
 
     return empresas
 
@@ -48,9 +48,9 @@ async def get_empresa(empresa_id: str) -> EmpresaDetalhadaDTO:
         if departamento["empresa_id"] is not None:
             departamento["empresa_id"] = str(departamento["empresa_id"])
 
-        if departamento["funcionarios"] is not None:
-            for i,funcionario_id in enumerate(departamento["funcionarios"]):
-                departamento["funcionarios"][i] = str(funcionario_id)
+        if departamento["funcionarios_id"] is not None:
+            for i,funcionario_id in enumerate(departamento["funcionarios_id"]):
+                departamento["funcionarios_id"][i] = str(funcionario_id)
 
     return empresa
 
@@ -58,12 +58,12 @@ async def get_empresa(empresa_id: str) -> EmpresaDetalhadaDTO:
 @router.post("/", response_model=EmpresaDetalhadaDTO)
 async def create_empresa(empresa: Empresa) -> EmpresaDetalhadaDTO:
     empresa_dict = empresa.model_dump(by_alias=True, exclude={"id"})
-    for i,departamento in enumerate(empresa_dict["departamentos"]):
+    for i,departamento in enumerate(empresa_dict["departamentos_id"]):
         departamento = await db.departamentos.find_one({"_id": ObjectId(departamento)})
         if not departamento:
-            empresa_dict['departamentos'].pop(i)
+            empresa_dict['departamentos_id'].pop(i)
             continue
-        empresa_dict['departamentos'][i] = ObjectId(departamento)
+        empresa_dict['departamentos_id'][i] = ObjectId(departamento["_id"])
 
     nova_empresa = await db_empresas.insert_one(empresa_dict)
 
@@ -76,21 +76,16 @@ async def create_empresa(empresa: Empresa) -> EmpresaDetalhadaDTO:
         departamento["_id"] = str(departamento["_id"])
 
         if departamento["empresa_id"] is not None:
-            departamento["empresa_id"] = str(departamento["empresa_id"])
-
-        if departamento["funcionarios"] is not None:
-            for i, funcionario_id in enumerate(departamento["funcionarios"]):
-                departamento["funcionarios"][i] = str(funcionario_id)
             await db.empresas.update_one(
                 {"_id": ObjectId(departamento["empresa_id"])},
-                {"$pull": {"departamentos": ObjectId(departamento["_id"])}}
+                {"$pull": {"departamentos_id": ObjectId(departamento["_id"])}}
             )
-
-            await db.departamentos.update_one(
-                {"_id": ObjectId(departamento["_id"])},
-                {"$set": {"empresa_id": ObjectId(empresa_criada["_id"])}}
-            )
-
+        departamento["empresa_id"] = str(empresa_criada["_id"])
+        departamento["funcionarios_id"] = [str(funcionario_id) for funcionario_id in departamento["funcionarios_id"]]
+        await db.departamentos.update_one(
+            {"_id": ObjectId(departamento["_id"])},
+            {"$set": {"empresa_id": ObjectId(empresa_criada["_id"])}}
+        )
 
     return empresa_criada
 
@@ -98,14 +93,14 @@ async def create_empresa(empresa: Empresa) -> EmpresaDetalhadaDTO:
 @router.put("/{empresa_id}", response_model=EmpresaDetalhadaDTO)
 async def update_empresa(empresa_id: str, empresa: Empresa) -> EmpresaDetalhadaDTO:
     empresa_dict = empresa.model_dump(by_alias=True, exclude={"id"})
-    for i, departamento in enumerate(empresa_dict["departamentos"]):
+    for i, departamento in enumerate(empresa_dict["departamentos_id"]):
         departamento = await db.departamentos.find_one({"_id": ObjectId(departamento)})
         if not departamento:
-            empresa_dict['departamentos'].pop(i)
+            empresa_dict['departamentos_id'].pop(i)
             continue
-        empresa_dict['departamentos'][i] = ObjectId(departamento)
-
+        empresa_dict['departamentos_id'][i] = ObjectId(departamento["_id"])
     empresa_antiga = await buscar_empresa_por_id(empresa_id)
+
     if not empresa_antiga:
         raise HTTPException(status_code=404, detail="Empresa não encontrada")
 
@@ -118,7 +113,7 @@ async def update_empresa(empresa_id: str, empresa: Empresa) -> EmpresaDetalhadaD
     if not empresa_atualizada:
         raise HTTPException(status_code=404, detail="Empresa não encontrada")
 
-    if empresa_antiga["departamentos"] != empresa_dict["departamentos"]:
+    if empresa_antiga["departamentos"] != empresa_atualizada["departamentos"]:
         departamentos_antigos = {departamento["_id"]: departamento for departamento in empresa_antiga["departamentos"]}
         departamentos_novos = {departamento["_id"]: departamento for departamento in empresa_atualizada["departamentos"]}
 
@@ -127,30 +122,28 @@ async def update_empresa(empresa_id: str, empresa: Empresa) -> EmpresaDetalhadaD
 
         for departamento in departamentos_removidos:
             await db.departamentos.delete_one({"_id": ObjectId(departamento["_id"])})
-            for funcionario_id in departamento["funcionarios"]:
+            for funcionario_id in departamento["funcionarios_id"]:
                 await db.projetos.update_many(
                     {},
-                    {"$pull": {"funcionarios": ObjectId(funcionario_id)}}
+                    {"$pull": {"funcionarios_id": ObjectId(funcionario_id)}}
                 )
                 await db.funcionarios.delete_one({"_id": ObjectId(funcionario_id)})
 
         for departamento in departamentos_adicionados:
-            print(departamento)
-            if departamento["empresa_id"] is not None:
-                await db.empresas.update_one(
-                    {"_id": ObjectId(departamento["empresa_id"])},
-                    {"$pull": {"departamentos": ObjectId(departamento["_id"])}}
-                )
-                await db.departamentos.update_one(
-                    {"_id": ObjectId(departamento["_id"])},
-                    {"$set": {"empresa_id": ObjectId(empresa_id)}}
-                )
+            await db.empresas.update_one(
+                {"_id": ObjectId(departamento["empresa_id"])},
+                {"$pull": {"departamentos_id": ObjectId(departamento["_id"])}}
+            )
+            await db.departamentos.update_one(
+                {"_id": ObjectId(departamento["_id"])},
+                {"$set": {"empresa_id": ObjectId(empresa_id)}}
+            )
 
     for departamento in empresa_atualizada["departamentos"]:
         departamento["empresa_id"] = str(empresa_id)
         departamento["_id"] = str(departamento["_id"])
-        for i, funcionario_id in enumerate(departamento["funcionarios"]):
-            departamento["funcionarios"][i] = str(funcionario_id)
+        for i, funcionario_id in enumerate(departamento["funcionarios_id"]):
+            departamento["funcionarios_id"][i] = str(funcionario_id)
 
 
     empresa_atualizada["_id"] = str(empresa_atualizada["_id"])
@@ -175,11 +168,11 @@ async def delete_empresa(empresa_id: str) -> EmpresaDetalhadaDTO:
         db.departamentos.delete_one({"_id": ObjectId(departamento["_id"])})
         departamento["_id"] = str(departamento["_id"])
         departamento["empresa_id"] = str(departamento["empresa_id"])
-        for i, funcionario_id in enumerate(departamento["funcionarios"]):
-            departamento["funcionarios"][i] = str(funcionario_id)
+        for i, funcionario_id in enumerate(departamento["funcionarios_id"]):
+            departamento["funcionarios_id"][i] = str(funcionario_id)
             await db.projetos.update_many(
                 {},
-                {"$pull": {"funcionarios": ObjectId(funcionario_id)}}
+                {"$pull": {"funcionarios_id": ObjectId(funcionario_id)}}
             )
             await db.funcionarios.delete_one({"_id": ObjectId(funcionario_id)})
 

@@ -1,6 +1,7 @@
+from __future__ import annotations
+from pydantic import BaseModel, Field
 from typing import Optional, List
 
-from pydantic import BaseModel, Field
 
 
 class Cliente(BaseModel):
@@ -21,5 +22,7 @@ class ClienteDetalhadoDTO(BaseModel):
     nome_fantasia: str
     email_de_contato: str
     projetos: Optional[List['Projeto']] = Field(default_factory=list)
-
-ClienteDetalhadoDTO.model_rebuild()
+    @classmethod
+    def resolve_refs(cls):
+        from models.projeto_models import Projeto
+        cls.model_rebuild(_types_namespace={"Projeto": Projeto})

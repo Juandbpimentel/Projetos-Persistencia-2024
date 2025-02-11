@@ -1,6 +1,7 @@
+from __future__ import annotations
 from pydantic import BaseModel, Field
-
 from typing import List, Optional
+
 
 
 class Contrato(BaseModel):
@@ -28,4 +29,7 @@ class ContratoDetalhadoDTO(BaseModel):
     moeda: str = "BRL"
     projeto: 'Projeto'
 
-ContratoDetalhadoDTO.model_rebuild()
+    @classmethod
+    def resolve_refs(cls):
+        from models.projeto_models import Projeto
+        cls.model_rebuild(_types_namespace={"Projeto": Projeto})

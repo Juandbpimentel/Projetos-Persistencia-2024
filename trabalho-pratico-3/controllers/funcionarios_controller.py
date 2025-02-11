@@ -23,6 +23,7 @@ async def get_funcionarios(skip: int = 0, limit: int = 10) -> List[Funcionario]:
     funcionarios = await db_funcionarios.find().skip(skip).limit(limit).to_list(length=limit)
     for funcionario in funcionarios:
         funcionario["_id"] = str(funcionario["_id"])
+        funcionario["departamento_id"] = str(funcionario["departamento_id"])
         if "projetos" in funcionario and isinstance(funcionario["projetos"], list):
             funcionario["projetos"] = [str(projeto_id) if isinstance(projeto_id, ObjectId) else projeto_id for projeto_id in funcionario["projetos"]]
 
@@ -54,7 +55,7 @@ async def create_funcionario(funcionario: Funcionario) -> Funcionario:
 
     projetos = []
 
-    for projeto_id in funcionario_criado["projetos"]:
+    for projeto_id in funcionario_criado["projetos_id"]:
         projeto = await db.projetos.find_one({"_id": ObjectId(projeto_id)})
         if not projeto:
             raise HTTPException(status_code=404, detail=f"Projeto {projeto_id} não encontrado")
@@ -63,12 +64,12 @@ async def create_funcionario(funcionario: Funcionario) -> Funcionario:
     for projeto in projetos:
         await db.projetos.update_one(
             {"_id": ObjectId(projeto["_id"])},
-            {"$push": {"funcionarios": funcionario_criado["_id"]}}
+            {"$push": {"funcionarios_id": ObjectId(funcionario_criado["_id"])}}
         )
 
     await db.departamentos.update_one(
         {"_id": ObjectId(funcionario_criado["departamento_id"])},
-        {"$push": {"funcionarios": str(funcionario_criado["_id"])}}
+        {"$push": {"funcionarios_id": ObjectId(funcionario_criado["_id"])}}
     )
 
     funcionario_criado["_id"] = str(funcionario_criado["_id"])

@@ -1,6 +1,6 @@
-from typing import Optional, List
-
+from __future__ import annotations
 from pydantic import BaseModel, Field
+from typing import Optional, List
 
 
 class Empresa(BaseModel):
@@ -20,5 +20,7 @@ class EmpresaDetalhadaDTO(BaseModel):
     nome_fantasia: str
     email_de_contato: str
     departamentos: Optional[List['Departamento']] = Field(default_factory=list)
-
-EmpresaDetalhadaDTO.model_rebuild()
+    @classmethod
+    def resolve_refs(cls):
+        from models.departamento_models import Departamento
+        cls.model_rebuild(_types_namespace={"Departamento": Departamento})
