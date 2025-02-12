@@ -66,8 +66,8 @@ def converte_ids_para_string(cliente):
 
 async def trata_cliente_dict(cliente):
     cliente = cliente.model_dump(by_alias=True, exclude={"id"})
-    cliente["projetos"] = [
-        ObjectId(projeto_id) for projeto_id in cliente["projetos"]
+    cliente["projetos_id"] = [
+        ObjectId(projeto_id) for projeto_id in cliente["projetos_id"]
         if await db.projetos.find_one({"_id": ObjectId(projeto_id)})
     ]
     return cliente
