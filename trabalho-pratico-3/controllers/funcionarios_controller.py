@@ -1,6 +1,9 @@
 from bson import ObjectId
 from fastapi import APIRouter, HTTPException
 from typing import List
+
+from logger import logger
+
 from models.funcionario_models import Funcionario, FuncionarioDetalhadoDTO
 from config import db
 
@@ -143,3 +146,12 @@ async def delete_funcionario(funcionario_id: str) -> FuncionarioDetalhadoDTO:
         await db.projetos.update_one({"_id": ObjectId(projeto["_id"])}, {"$pull": {"funcionarios_id": ObjectId(funcionario_id)}})
     await db.departamentos.update_one({"_id": ObjectId(funcionario["departamento"]["_id"])}, {"$pull": {"funcionarios_id": ObjectId(funcionario_id)}})
     return funcionario
+
+@router.get("/funcionarios/count", response_model=int)
+async def count_funcionarios() -> int:
+    try:
+        count = await db_funcionarios.count_documents({})
+        return count
+    except Exception as e:
+        logger.error(f"Erro ao contar projetos: {e}")
+        raise HTTPException(status_code=500, detail="Erro interno ao contar funcionarios")

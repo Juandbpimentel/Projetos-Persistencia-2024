@@ -1,6 +1,8 @@
 from bson import ObjectId
 from fastapi import APIRouter, HTTPException
-from typing import List, Any
+from typing import List, Any, Optional
+from fastapi.logger import logger
+
 
 from models.projeto_models import Projeto, ProjetoDetalhadoDTO
 from config import db
@@ -211,3 +213,12 @@ async def delete_projeto(projeto_id: str) -> ProjetoDetalhadoDTO:
             {"$pull": {"projetos_id": ObjectId(projeto["_id"])}}
         )
     return projeto
+
+@router.get("/projeto/count", response_model=int)
+async def count_projetos() -> int:
+    try:
+        count = await db_projetos.count_documents({})
+        return count
+    except Exception as e:
+        logger.error(f"Erro ao contar projetos: {e}")
+        raise HTTPException(status_code=500, detail="Erro interno ao contar projetos")

@@ -2,6 +2,8 @@ from bson import ObjectId
 from fastapi import APIRouter, HTTPException
 from typing import List
 
+from logger import logger
+
 from models.contrato_models import Contrato, ContratoDetalhadoDTO
 from config import db
 
@@ -154,3 +156,12 @@ async def delete_contrato(contrato_id: str) -> ContratoDetalhadoDTO:
     )
 
     return contrato
+
+@router.get("/contratos/count", response_model=int)
+async def count_contratos() -> int:
+    try:
+        count = await db_contratos.count_documents({})
+        return count
+    except Exception as e:
+        logger.error(f"Erro ao contar projetos: {e}")
+        raise HTTPException(status_code=500, detail="Erro interno ao contar projetos")
