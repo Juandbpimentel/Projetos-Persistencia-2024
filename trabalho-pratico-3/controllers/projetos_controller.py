@@ -1,6 +1,8 @@
 from bson import ObjectId
 from fastapi import APIRouter, HTTPException
-from typing import List, Any
+from typing import List, Any, Optional
+from fastapi.logger import logger
+
 
 from models.projeto_models import Projeto, ProjetoDetalhadoDTO
 from config import db
@@ -211,3 +213,39 @@ async def delete_projeto(projeto_id: str) -> ProjetoDetalhadoDTO:
             {"$pull": {"projetos_id": ObjectId(projeto["_id"])}}
         )
     return projeto
+
+@router.get("/projeto/count", response_model=int)
+async def count_projetos() -> int:
+    try:
+        count = await db_projetos.count_documents({})
+        return count
+    except Exception as e:
+        logger.error(f"Erro ao contar projetos: {e}")
+        raise HTTPException(status_code=500, detail="Erro interno ao contar projetos")
+
+@router.get("/buscar_por_nome_parcial", response_model=List[ProjetoDetalhadoDTO])
+async def buscar_projetos_por_nome_parcial(nome_parcial: str) -> List[ProjetoDetalhadoDTO]:
+    projetos = await db_projetos.aggregate([
+        {"$match": {"nome": {"$regex": nome_parcial, "$options": "i"}}},
+        {"$lookup": {
+            "from": "clientes",
+            "localField": "cliente_id",
+            "foreignField": "_id",
+            "as": "cliente"
+        }},
+        {"$lookup": {
+            "from": "funcionarios",
+            "localField": "funcionarios_id",
+            "foreignField": "_id",
+            "as": "funcionarios"
+        }},
+        {"$lookup": {
+            "from": "contratos",
+            "localField": "contrato_id",
+            "foreignField": "_id",
+            "as": "contrato"
+        }}
+    ]).to_list()
+    for projeto in projetos:
+        converte_ids_para_string(projeto)
+    return projetos

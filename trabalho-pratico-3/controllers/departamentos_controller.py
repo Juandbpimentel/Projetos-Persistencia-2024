@@ -1,6 +1,9 @@
 from bson import ObjectId
 from fastapi import APIRouter, HTTPException
 from typing import List
+
+from logger import logger
+
 from models.departamento_models import Departamento, DepartamentoDetalhadoDTO
 from config import db
 
@@ -167,3 +170,57 @@ async def delete_departamento(departamento_id: str) -> DepartamentoDetalhadoDTO:
         await db.projetos.update_many({}, {"$pull": {"funcionarios_id": ObjectId(funcionario["_id"])}})
         await db.funcionarios.delete_one({"_id": ObjectId(funcionario["_id"])})
     return departamento
+
+@router.get("/departamentos/count", response_model=int)
+async def count_departamentos() -> int:
+    try:
+        count = await db_departamentos.count_documents({})
+        return count
+    except Exception as e:
+        logger.error(f"Erro ao contar projetos: {e}")
+        raise HTTPException(status_code=500, detail="Erro interno ao contar projetos")
+
+
+
+@router.get("/buscar", response_model=List[DepartamentoDetalhadoDTO])
+async def buscar_departamentos_por_nome(nome: str) -> List[DepartamentoDetalhadoDTO]:
+    departamentos = await db_departamentos.aggregate([
+        {"$match": {"nome_departamento": {"$regex": nome, "$options": "i"}}},
+        {"$lookup": {
+            "from": "funcionarios",
+            "localField": "funcionarios_id",
+            "foreignField": "_id",
+            "as": "funcionarios"
+        }},
+        {"$lookup": {
+            "from": "empresas",
+            "localField": "empresa_id",
+            "foreignField": "_id",
+            "as": "empresa"
+        }}
+    ]).to_list()
+    for departamento in departamentos:
+        converte_ids_para_string(departamento)
+    return departamentos
+
+
+@router.get("/buscar_por_empresa", response_model=List[DepartamentoDetalhadoDTO])
+async def buscar_departamentos_por_empresa(empresa_id: str) -> List[DepartamentoDetalhadoDTO]:
+    departamentos = await db_departamentos.aggregate([
+        {"$match": {"empresa_id": ObjectId(empresa_id)}},
+        {"$lookup": {
+            "from": "funcionarios",
+            "localField": "funcionarios_id",
+            "foreignField": "_id",
+            "as": "funcionarios"
+        }},
+        {"$lookup": {
+            "from": "empresas",
+            "localField": "empresa_id",
+            "foreignField": "_id",
+            "as": "empresa"
+        }}
+    ]).to_list()
+    for departamento in departamentos:
+        converte_ids_para_string(departamento)
+    return departamentos

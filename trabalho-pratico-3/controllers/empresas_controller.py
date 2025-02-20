@@ -1,6 +1,9 @@
 from bson import ObjectId
 from fastapi import APIRouter, HTTPException
 from typing import List
+
+from logger import logger
+
 from models.empresa_models import EmpresaDetalhadaDTO, Empresa
 from config import db
 
@@ -129,3 +132,12 @@ async def delete_empresa(empresa_id: str) -> EmpresaDetalhadaDTO:
             await db.projetos.update_many({}, {"$pull": {"funcionarios_id": ObjectId(funcionario_id)}})
             await db.funcionarios.delete_one({"_id": ObjectId(funcionario_id)})
     return empresa
+
+@router.get("/empresas/count", response_model=int)
+async def count_empresas() -> int:
+    try:
+        count = await db_empresas.count_documents({})
+        return count
+    except Exception as e:
+        logger.error(f"Erro ao contar projetos: {e}")
+        raise HTTPException(status_code=500, detail="Erro interno ao contar")
