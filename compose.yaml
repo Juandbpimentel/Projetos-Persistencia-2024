@@ -1,0 +1,33 @@
+services:
+  postgres-db:
+    image: postgres:16-alpine3.20
+    container_name: postgres-persistencio
+    environment:
+        POSTGRES_USER: postgres
+        POSTGRES_PASSWORD: postgres
+        POSTGRES_DB: persistencio
+    ports:
+        - "5432:5432"
+    volumes:
+        - ./postgres-data:/var/lib/postgresql_16/data
+    networks:
+       - app-network
+
+  mongo:
+      image: mongo:latest
+      container_name: mongodb-persistencio
+      ports:
+          - "27017:27017"
+      environment:
+          - MONGO_INITDB_ROOT_USERNAME=root
+          - MONGO_INITDB_ROOT_PASSWORD=root
+      networks:
+          - app-network
+
+volumes:
+  postgres-data:
+    driver: local
+
+networks:
+  app-network:
+    driver: bridge
