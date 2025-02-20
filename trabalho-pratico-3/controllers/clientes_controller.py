@@ -185,3 +185,66 @@ async def count_clientes() -> int:
     except Exception as e:
         logger.error(f"Erro ao contar projetos: {e}")
         raise HTTPException(status_code=500, detail="Erro interno ao contar projetos")
+
+@router.get("/clientes/filtro/nome", response_model=List[ClienteDetalhadoDTO])
+async def buscar_clientes_por_nome(nome: str) -> List[ClienteDetalhadoDTO]:
+    clientes = await db_clientes.aggregate([
+        {"$match": {"nome_cliente": {"$regex": nome, "$options": "i"}}},
+        {"$lookup": {
+            "from": "projetos",
+            "localField": "projetos_id",
+            "foreignField": "_id",
+            "as": "projetos"
+        }}
+    ]).to_list()
+    for cliente in clientes:
+        converte_ids_para_string(cliente)
+    return clientes
+
+
+@router.get("/buscar_projetos_contratos", response_model=ClienteDetalhadoDTO)
+async def buscar_projetos_e_contratos_por_cliente(cliente_id: str) -> ClienteDetalhadoDTO:
+    cliente = await db_clientes.aggregate([
+        {"$match": {"_id": ObjectId(cliente_id)}},
+        {"$lookup": {
+            "from": "projetos",
+            "localField": "projetos_id",
+            "foreignField": "_id",
+            "as": "projetos"
+        }},
+        {"$unwind": "$projetos"},
+        {"$lookup": {
+            "from": "contratos",
+            "localField": "projetos.contrato_id",
+            "foreignField": "_id",
+            "as": "projetos.contrato"
+        }},
+        {"$group": {
+            "_id": "$_id",
+            "nome_cliente": {"$first": "$nome_cliente"},
+            "projetos": {"$push": "$projetos"}
+        }}
+    ]).to_list()
+
+    if cliente:
+        cliente = cliente[0]
+        converte_ids_para_string(cliente)
+    else:
+        raise HTTPException(status_code=404, detail="Cliente não encontrado")
+
+    return cliente
+
+@router.get("projetos/parcial/buscar_por_nome_parcial", response_model=List[ClienteDetalhadoDTO])
+async def buscar_clientes_por_nome_parcial(nome_parcial: str) -> List[ClienteDetalhadoDTO]:
+    clientes = await db_clientes.aggregate([
+        {"$match": {"nome_cliente": {"$regex": nome_parcial, "$options": "i"}}},
+        {"$lookup": {
+            "from": "projetos",
+            "localField": "projetos_id",
+            "foreignField": "_id",
+            "as": "projetos"
+        }}
+    ]).to_list()
+    for cliente in clientes:
+        converte_ids_para_string(cliente)
+    return clientes

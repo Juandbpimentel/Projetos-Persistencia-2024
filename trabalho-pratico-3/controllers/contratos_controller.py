@@ -165,3 +165,19 @@ async def count_contratos() -> int:
     except Exception as e:
         logger.error(f"Erro ao contar projetos: {e}")
         raise HTTPException(status_code=500, detail="Erro interno ao contar projetos")
+
+
+@router.get("/filtro/buscar_por_data_termino", response_model=List[ContratoDetalhadoDTO])
+async def buscar_contratos_por_data_termino(data_termino: str) -> List[ContratoDetalhadoDTO]:
+    contratos = await db_contratos.aggregate([
+        {"$match": {"data_termino": data_termino}},
+        {"$lookup": {
+            "from": "projetos",
+            "localField": "projeto_id",
+            "foreignField": "_id",
+            "as": "projeto"
+        }}
+    ]).to_list()
+    for contrato in contratos:
+        converte_ids_para_string(contrato)
+    return contratos

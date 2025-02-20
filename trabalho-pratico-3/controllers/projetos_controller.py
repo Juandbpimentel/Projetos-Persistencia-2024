@@ -222,3 +222,30 @@ async def count_projetos() -> int:
     except Exception as e:
         logger.error(f"Erro ao contar projetos: {e}")
         raise HTTPException(status_code=500, detail="Erro interno ao contar projetos")
+
+@router.get("/buscar_por_nome_parcial", response_model=List[ProjetoDetalhadoDTO])
+async def buscar_projetos_por_nome_parcial(nome_parcial: str) -> List[ProjetoDetalhadoDTO]:
+    projetos = await db_projetos.aggregate([
+        {"$match": {"nome": {"$regex": nome_parcial, "$options": "i"}}},
+        {"$lookup": {
+            "from": "clientes",
+            "localField": "cliente_id",
+            "foreignField": "_id",
+            "as": "cliente"
+        }},
+        {"$lookup": {
+            "from": "funcionarios",
+            "localField": "funcionarios_id",
+            "foreignField": "_id",
+            "as": "funcionarios"
+        }},
+        {"$lookup": {
+            "from": "contratos",
+            "localField": "contrato_id",
+            "foreignField": "_id",
+            "as": "contrato"
+        }}
+    ]).to_list()
+    for projeto in projetos:
+        converte_ids_para_string(projeto)
+    return projetos

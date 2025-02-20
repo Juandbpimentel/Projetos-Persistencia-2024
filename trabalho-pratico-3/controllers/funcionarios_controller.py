@@ -155,3 +155,24 @@ async def count_funcionarios() -> int:
     except Exception as e:
         logger.error(f"Erro ao contar projetos: {e}")
         raise HTTPException(status_code=500, detail="Erro interno ao contar funcionarios")
+
+@router.get("/funcionarios//filtro/nome", response_model=List[FuncionarioDetalhadoDTO])
+async def buscar_funcionarios_por_nome(nome: str) -> List[FuncionarioDetalhadoDTO]:
+    funcionarios = await db_funcionarios.aggregate([
+        {"$match": {"nome": {"$regex": nome, "$options": "i"}}},
+        {"$lookup": {
+            "from": "departamentos",
+            "localField": "departamento_id",
+            "foreignField": "_id",
+            "as": "departamento"
+        }},
+        {"$lookup": {
+            "from": "projetos",
+            "localField": "projetos_id",
+            "foreignField": "_id",
+            "as": "projetos"
+        }}
+    ]).to_list()
+    for funcionario in funcionarios:
+        converte_ids_em_string(funcionario)
+    return funcionarios
