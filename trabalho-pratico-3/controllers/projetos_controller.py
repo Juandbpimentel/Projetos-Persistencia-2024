@@ -117,7 +117,6 @@ def converte_ids_para_string(projeto: ProjetoDetalhadoDTO):
                 str(pid) for pid in funcionario["projetos_id"]
             ]
             funcionario["departamento_id"] = str(funcionario["departamento_id"])
-            projeto["funcionarios"] = funcionario
     if projeto["contrato"] and len(projeto["contrato"]) > 0:
         contrato = projeto["contrato"][0] if projeto["contrato"] else None
         if contrato:
