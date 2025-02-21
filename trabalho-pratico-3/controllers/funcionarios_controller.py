@@ -147,7 +147,7 @@ async def delete_funcionario(funcionario_id: str) -> FuncionarioDetalhadoDTO:
     await db.departamentos.update_one({"_id": ObjectId(funcionario["departamento"]["_id"])}, {"$pull": {"funcionarios_id": ObjectId(funcionario_id)}})
     return funcionario
 
-@router.get("/funcionarios/count", response_model=int)
+@router.get("/utils/count", response_model=int)
 async def count_funcionarios() -> int:
     try:
         count = await db_funcionarios.count_documents({})
@@ -156,7 +156,7 @@ async def count_funcionarios() -> int:
         logger.error(f"Erro ao contar projetos: {e}")
         raise HTTPException(status_code=500, detail="Erro interno ao contar funcionarios")
 
-@router.get("/funcionarios//filtro/nome", response_model=List[FuncionarioDetalhadoDTO])
+@router.get("/filtro/nome/{nome}", response_model=List[FuncionarioDetalhadoDTO])
 async def buscar_funcionarios_por_nome(nome: str) -> List[FuncionarioDetalhadoDTO]:
     funcionarios = await db_funcionarios.aggregate([
         {"$match": {"nome": {"$regex": nome, "$options": "i"}}},
