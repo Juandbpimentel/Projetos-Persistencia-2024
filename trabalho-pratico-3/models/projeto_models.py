@@ -31,3 +31,5 @@ class ProjetoDetalhadoDTO(BaseModel):
         from models.funcionario_models import Funcionario
         from models.contrato_models import Contrato
         cls.model_rebuild(_types_namespace={"Cliente": Cliente, "Funcionario": Funcionario, "Contrato": Contrato})
+
+
