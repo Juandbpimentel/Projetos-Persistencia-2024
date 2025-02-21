@@ -217,7 +217,7 @@ async def delete_departamento(departamento_id: str) -> DepartamentoDetalhadoDTO:
     return departamento
 
 
-@router.get("/utils/contar_departamentos", response_model=int)
+@router.get("/utils/count", response_model=int)
 async def count_departamentos() -> int:
     try:
         count = await db_departamentos.count_documents({})
@@ -227,7 +227,7 @@ async def count_departamentos() -> int:
         raise HTTPException(status_code=500, detail="Erro interno ao contar projetos")
 
 
-@router.get("/filtro/{nome}", response_model=List[DepartamentoDetalhadoDTO])
+@router.get("/filtro_por_nome/{nome}", response_model=List[DepartamentoDetalhadoDTO])
 async def buscar_departamentos_por_nome(nome: str) -> List[DepartamentoDetalhadoDTO]:
     departamentos = await db_departamentos.aggregate(
         [
@@ -257,7 +257,7 @@ async def buscar_departamentos_por_nome(nome: str) -> List[DepartamentoDetalhado
 
 
 @router.get(
-    "/filtro/buscar_por_empresa/{empresa_id}",
+    "/buscar_por_empresa/{empresa_id}",
     response_model=List[DepartamentoDetalhadoDTO],
 )
 async def buscar_departamentos_por_empresa(

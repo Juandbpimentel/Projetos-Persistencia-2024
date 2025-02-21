@@ -2,19 +2,31 @@ from traceback import print_exception
 
 from fastapi import FastAPI, HTTPException
 from models import (
-    funcionario_models, departamento_models, empresa_models, cliente_models, contrato_models, projeto_models
+    funcionario_models,
+    departamento_models,
+    empresa_models,
+    cliente_models,
+    contrato_models,
+    projeto_models,
 )
 from controllers import (
-    departamentos_controller, empresas_controller, funcionarios_controller, clientes_controller, contratos_controller, projetos_controller
+    departamentos_controller,
+    empresas_controller,
+    funcionarios_controller,
+    clientes_controller,
+    contratos_controller,
+    projetos_controller,
 )
 
 # Resolver referências dos modelos
 funcionario_models.FuncionarioDetalhadoDTO.resolve_refs()
 departamento_models.DepartamentoDetalhadoDTO.resolve_refs()
 empresa_models.EmpresaDetalhadaDTO.resolve_refs()
-cliente_models.ClienteDetalhadoDTO.resolve_refs()
-contrato_models.ContratoDetalhadoDTO.resolve_refs()
 projeto_models.ProjetoDetalhadoDTO.resolve_refs()
+cliente_models.ClienteDetalhadoDTO.resolve_refs()
+cliente_models.ClienteProjetosDTO.resolve_refs()
+contrato_models.ContratoDetalhadoDTO.resolve_refs()
+
 
 app = FastAPI()
 

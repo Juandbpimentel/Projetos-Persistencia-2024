@@ -3,7 +3,8 @@ from bson import ObjectId
 from fastapi import APIRouter, HTTPException
 from typing import List
 
-from models.cliente_models import Cliente, ClienteDetalhadoDTO
+from models.cliente_models import Cliente, ClienteDetalhadoDTO, ClienteProjetosDTO
+import controllers.projetos_controller as projetos_controller
 
 from config import db
 
@@ -195,7 +196,7 @@ async def delete_cliente(cliente_id: str) -> ClienteDetalhadoDTO:
     return cliente
 
 
-@router.get("/clientes/count", response_model=int)
+@router.get("/utils/count", response_model=int)
 async def count_clientes() -> int:
     try:
         count = await db_clientes.count_documents({})
@@ -205,11 +206,11 @@ async def count_clientes() -> int:
         raise HTTPException(status_code=500, detail="Erro interno ao contar projetos")
 
 
-@router.get("/clientes/filtro/nome", response_model=List[ClienteDetalhadoDTO])
-async def buscar_clientes_por_nome(nome: str) -> List[ClienteDetalhadoDTO]:
-    clientes = await db_clientes.aggregate(
+@router.get("/filtro/{nome}", response_model=ClienteDetalhadoDTO)
+async def busca_cliente_por_nome(nome: str) -> ClienteDetalhadoDTO:
+    cliente = await db_clientes.aggregate(
         [
-            {"$match": {"nome_cliente": {"$regex": nome, "$options": "i"}}},
+            {"$match": {"nome": nome}},
             {
                 "$lookup": {
                     "from": "projetos",
@@ -220,15 +221,20 @@ async def buscar_clientes_por_nome(nome: str) -> List[ClienteDetalhadoDTO]:
             },
         ]
     ).to_list()
-    for cliente in clientes:
+    if cliente:
+        cliente = cliente[0]
         converte_ids_para_string(cliente)
-    return clientes
+    if not cliente:
+        raise HTTPException(status_code=404, detail="Cliente não encontrado")
+    return cliente
 
 
-@router.get("/buscar_projetos_contratos", response_model=ClienteDetalhadoDTO)
+@router.get(
+    "/buscar_projetos_contratos/{cliente_id}", response_model=ClienteProjetosDTO
+)
 async def buscar_projetos_e_contratos_por_cliente(
     cliente_id: str,
-) -> ClienteDetalhadoDTO:
+) -> ClienteProjetosDTO:
     cliente = await db_clientes.aggregate(
         [
             {"$match": {"_id": ObjectId(cliente_id)}},
@@ -240,43 +246,59 @@ async def buscar_projetos_e_contratos_por_cliente(
                     "as": "projetos",
                 }
             },
-            {"$unwind": "$projetos"},
-            {
-                "$lookup": {
-                    "from": "contratos",
-                    "localField": "projetos.contrato_id",
-                    "foreignField": "_id",
-                    "as": "projetos.contrato",
-                }
-            },
-            {
-                "$group": {
-                    "_id": "$_id",
-                    "nome_cliente": {"$first": "$nome_cliente"},
-                    "projetos": {"$push": "$projetos"},
-                }
-            },
         ]
     ).to_list()
-
+    projetos = []
     if cliente:
         cliente = cliente[0]
-        converte_ids_para_string(cliente)
+        projetos = await db.projetos.aggregate(
+            [
+                {"$match": {"cliente_id": ObjectId(cliente_id)}},
+                {
+                    "$lookup": {
+                        "from": "contratos",
+                        "localField": "contrato_id",
+                        "foreignField": "_id",
+                        "as": "contrato",
+                    }
+                },
+                {
+                    "$lookup": {
+                        "from": "funcionarios",
+                        "localField": "funcionarios_id",
+                        "foreignField": "_id",
+                        "as": "funcionarios",
+                    }
+                },
+                {
+                    "$lookup": {
+                        "from": "clientes",
+                        "localField": "cliente_id",
+                        "foreignField": "_id",
+                        "as": "cliente",
+                    }
+                },
+            ]
+        ).to_list()
+        for projeto in projetos:
+            projetos_controller.converte_ids_para_string(projeto)
+
     else:
         raise HTTPException(status_code=404, detail="Cliente não encontrado")
-
-    return cliente
+    print(projetos)
+    resultado = ClienteProjetosDTO(projetos=projetos)
+    return resultado
 
 
 @router.get(
-    "projetos/parcial/buscar_por_nome_parcial", response_model=List[ClienteDetalhadoDTO]
+    "/filtrar_por_nome_parcial/{nome}", response_model=List[ClienteDetalhadoDTO]
 )
-async def buscar_clientes_por_nome_parcial(
-    nome_parcial: str,
+async def filtrar_clientes_por_nome_parcial(
+    nome: str,
 ) -> List[ClienteDetalhadoDTO]:
     clientes = await db_clientes.aggregate(
         [
-            {"$match": {"nome_cliente": {"$regex": nome_parcial, "$options": "i"}}},
+            {"$match": {"nome": {"$regex": nome, "$options": "i"}}},
             {
                 "$lookup": {
                     "from": "projetos",

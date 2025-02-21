@@ -265,7 +265,7 @@ async def count_projetos() -> int:
 
 
 @router.get(
-    "/filtro/buscar_por_nome_parcial/{nome}",
+    "/filtrar_por_nome_parcial/{nome}",
     response_model=List[ProjetoDetalhadoDTO],
 )
 async def buscar_projetos_por_nome_parcial(

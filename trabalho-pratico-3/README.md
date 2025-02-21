@@ -18,3 +18,4 @@ Para executar o projeto, siga os passos abaixo:
 ```
 - Acesse o endereço `http://localhost:8000/docs` no seu navegador para acessar a documentação da API
 - Pronto! Agora você pode testar a API
+- OBS: Caso queira usar os endpoints do Insomnia, importe o arquivo `Insomnia_2025-02-20.json` para o seu Insomnia
